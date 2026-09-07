@@ -40,3 +40,7 @@ pnpm-debug.log*
 *.sw?
 .DS_Store
 Thumbs.db
+
+# Drafts & Local Assets (Never uploaded)
+draft/
+
