@@ -2,8 +2,29 @@
 
 const BASE = "";  // Same-origin Pages Functions
 
+export function getAdminToken() {
+  if (typeof window === "undefined") return null;
+  const token = localStorage.getItem("imf_admin_token") || sessionStorage.getItem("imf_admin_token");
+  if (!token) return null;
+
+  // Check client-side expiration
+  try {
+    const parts = token.split(".");
+    if (parts.length === 2) {
+      const payload = JSON.parse(atob(parts[0]));
+      if (payload.exp && Date.now() > payload.exp) {
+        localStorage.removeItem("imf_admin_token");
+        sessionStorage.removeItem("imf_admin_token");
+        return null;
+      }
+    }
+  } catch (_) {}
+
+  return token;
+}
+
 function getAuthHeader() {
-  const token = sessionStorage.getItem("imf_admin_token");
+  const token = getAdminToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -18,6 +39,9 @@ async function request(path, options = {}) {
   });
 
   if (!res.ok) {
+    if (res.status === 401 && path.startsWith("/api/admin")) {
+      adminLogout();
+    }
     let message = `HTTP ${res.status}`;
     try {
       const err = await res.json();
@@ -141,17 +165,23 @@ export async function adminLogin(password) {
     body: JSON.stringify({ password }),
   });
   if (result.token) {
-    sessionStorage.setItem("imf_admin_token", result.token);
+    try {
+      localStorage.setItem("imf_admin_token", result.token);
+      sessionStorage.setItem("imf_admin_token", result.token);
+    } catch (_) {}
   }
   return result;
 }
 
 export function adminLogout() {
-  sessionStorage.removeItem("imf_admin_token");
+  try {
+    localStorage.removeItem("imf_admin_token");
+    sessionStorage.removeItem("imf_admin_token");
+  } catch (_) {}
 }
 
 export function isAdminLoggedIn() {
-  return !!sessionStorage.getItem("imf_admin_token");
+  return !!getAdminToken();
 }
 
 export const isAdminAuthed = isAdminLoggedIn;
@@ -177,6 +207,6 @@ export async function deleteRecord(type, id) {
 }
 
 export function getAdminDownloadUrl() {
-  const token = sessionStorage.getItem("imf_admin_token");
-  return `/api/admin/download-all?token=${token}`;
+  const token = getAdminToken() || "";
+  return `/api/admin/download-all?token=${encodeURIComponent(token)}`;
 }

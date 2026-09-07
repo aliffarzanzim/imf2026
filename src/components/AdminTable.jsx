@@ -7,6 +7,7 @@ import {
   updateRegistration,
   deleteRecord,
   getAdminDownloadUrl,
+  getAdminToken,
 } from "../utils/api";
 import {
   exportMergedDelegatesExcel,
@@ -124,7 +125,7 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDelete
     ? record.activities
     : (record.activities ? [record.activities] : []);
 
-  const token = sessionStorage.getItem("imf_admin_token") || "";
+  const token = getAdminToken() || "";
 
   const content = (
     <div
