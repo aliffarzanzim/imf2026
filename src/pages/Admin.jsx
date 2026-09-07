@@ -1,21 +1,26 @@
 // src/pages/Admin.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 import { AdminTable } from "../components/AdminTable";
-import { adminLogin, adminLogout, isAdminLoggedIn } from "../utils/api";
+import { adminLogin, adminLogout, isAdminAuthed } from "../utils/api";
 import { Icons } from "../assets/icons";
+import { navigate } from "../utils/navigation";
 
 export function Admin() {
-  const [authed, setAuthed] = useState(isAdminLoggedIn());
+  const [authed, setAuthed] = useState(isAdminAuthed());
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
 
+  useEffect(() => {
+    setAuthed(isAdminAuthed());
+  }, []);
+
   async function handleLogin(e) {
     e.preventDefault();
-    if (!password) {
+    if (!password.trim()) {
       setError("Please enter the admin password.");
       return;
     }
@@ -24,6 +29,7 @@ export function Admin() {
     try {
       await adminLogin(password);
       setAuthed(true);
+      setPassword("");
     } catch (err) {
       setError(err.message || "Invalid credentials. Please try again.");
     } finally {
@@ -41,8 +47,8 @@ export function Admin() {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col">
       <Header
         onOpenAdmin={() => {}}
-        onHome={() => { window.location.hash = "#/"; }}
-        onOpenRegister={() => { window.location.hash = "#/register"; }}
+        onHome={() => navigate("/")}
+        onOpenRegister={() => navigate("/register")}
       />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 w-full">
@@ -125,7 +131,7 @@ export function Admin() {
 
               <div className="mt-6 text-center border-t border-slate-100 pt-4">
                 <button
-                  onClick={() => { window.location.hash = "#/"; }}
+                  onClick={() => navigate("/")}
                   className="text-xs font-semibold text-slate-500 hover:text-sky-600 transition-colors"
                 >
                   ← Return to Public Portal
@@ -156,7 +162,7 @@ export function Admin() {
 
                 <div className="flex items-center gap-2.5">
                   <button
-                    onClick={() => { window.location.hash = "#/"; }}
+                    onClick={() => navigate("/")}
                     className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all"
                   >
                     Public View
@@ -180,9 +186,10 @@ export function Admin() {
 
       <Footer
         onOpenAdmin={() => {}}
-        onOpenRegister={() => { window.location.hash = "#/register"; }}
-        onOpenAbstract={() => { window.location.hash = "#/abstract"; }}
+        onOpenRegister={() => navigate("/register")}
+        onOpenAbstract={() => navigate("/abstract")}
       />
+
     </div>
   );
 }

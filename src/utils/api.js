@@ -44,26 +44,72 @@ export async function getUploadUrl(fileName, fileType) {
 
 export async function uploadFileToR2(presignedUrl, file, onProgress) {
   return new Promise((resolve, reject) => {
+    // Check if client is online
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return reject(new Error("You are currently offline. Please check your internet connection and try again."));
+    }
+
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", presignedUrl);
-    xhr.setRequestHeader("Content-Type", file.type);
+    xhr.timeout = 120000; // 2 minutes timeout for large manuscripts/presentations
+
+    const contentType = file.type || "application/octet-stream";
+    xhr.setRequestHeader("Content-Type", contentType);
 
     if (onProgress) {
       xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          onProgress(Math.round((e.loaded / e.total) * 100));
+        if (e.lengthComputable && e.total > 0) {
+          const percent = Math.min(99, Math.round((e.loaded / e.total) * 100));
+          onProgress(percent);
         }
       });
     }
 
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error(`R2 upload failed: ${xhr.status}`));
+      if (xhr.status >= 200 && xhr.status < 300) {
+        if (onProgress) onProgress(100);
+        resolve();
+      } else {
+        let errMsg = `Upload failed (Status ${xhr.status})`;
+        try {
+          const parsed = JSON.parse(xhr.responseText);
+          if (parsed.error) errMsg = parsed.error;
+          else if (parsed.message) errMsg = parsed.message;
+        } catch (_) {
+          if (xhr.status === 413) {
+            errMsg = "The file is too large for the server. Maximum size is 100 MB.";
+          } else if (xhr.status === 403) {
+            errMsg = "Upload security authorization expired. Please try submitting again.";
+          } else if (xhr.status === 503) {
+            errMsg = "Storage service is temporarily busy. Please retry in a few moments.";
+          } else if (xhr.statusText) {
+            errMsg = `Upload failed: ${xhr.statusText}`;
+          }
+        }
+        reject(new Error(errMsg));
+      }
     };
-    xhr.onerror = () => reject(new Error("Network error during file upload"));
+
+    xhr.ontimeout = () => {
+      reject(new Error("File upload timed out. Your connection might be slow or unstable. Please retry."));
+    };
+
+    xhr.onerror = () => {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        reject(new Error("Network connection lost during file upload. Please reconnect and try again."));
+      } else {
+        reject(new Error("Network error occurred during file upload. Please check your internet connection or proxy."));
+      }
+    };
+
+    xhr.onabort = () => {
+      reject(new Error("File upload was cancelled."));
+    };
+
     xhr.send(file);
   });
 }
+
 
 export async function submitAbstract(data) {
   return request("/api/submit-abstract", { method: "POST", body: JSON.stringify(data) });
@@ -88,6 +134,9 @@ export function adminLogout() {
 export function isAdminLoggedIn() {
   return !!sessionStorage.getItem("imf_admin_token");
 }
+
+export const isAdminAuthed = isAdminLoggedIn;
+
 
 // ── Admin Records ─────────────────────────────────────────────
 export async function fetchAdminRecords() {

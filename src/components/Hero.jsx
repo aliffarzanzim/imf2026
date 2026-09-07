@@ -69,36 +69,45 @@ export function Hero({ onOpenRegister, onOpenAbstract }) {
   }, []);
 
   return (
-    <section className="relative pt-24 pb-16 sm:pt-32 sm:pb-24 overflow-hidden">
+    <section className="relative pt-20 pb-16 sm:pt-28 sm:pb-24 overflow-hidden">
       {/* Background ambient lighting */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-tr from-sky-400/15 to-teal-300/15 rounded-full blur-3xl pointer-events-none -z-10" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center">
 
-        {/* Top Shimmer Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-teal-200/80 bg-white/90 shadow-xs mb-8 backdrop-blur-md animate-fade-in">
-          <span className="w-2 h-2 rounded-full bg-teal-500 animate-ping" />
-          <span className="text-xs font-bold tracking-wide uppercase text-slate-700">
-            DMC IMIG &nbsp;•&nbsp; ACP Bangladesh &nbsp;•&nbsp; BSM
+        {/* Festival Badge */}
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-sky-200 bg-sky-50 shadow-xs mb-4">
+          <span className="w-2 h-2 rounded-full bg-sky-600" />
+          <span className="text-xs font-black tracking-wider uppercase text-sky-900">
+            Internal Medicine Festival 2026
           </span>
         </div>
 
-        {/* Clean, Impactful Headline without clunky quotes */}
-        <h1 className="max-w-4xl text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-slate-900 leading-[1.08] animate-slide-up">
-          Inspiring the Future of <br className="hidden sm:inline" />
+        {/* Grand Festival Name as Main Heading */}
+        <h1 className="max-w-4xl text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-slate-900 leading-[1.08]">
+          Internal Medicine <br className="hidden sm:inline" />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-600 via-teal-600 to-emerald-600">
-            Internal Medicine
+            Festival 2026
           </span>
         </h1>
 
-        {/* Subtitle */}
-        <p className="max-w-2xl mt-6 text-base sm:text-lg text-slate-600 leading-relaxed font-normal animate-fade-in">
+        {/* Theme Slogan */}
+        <p className="text-lg sm:text-2xl font-bold text-slate-800 mt-4 tracking-tight">
+          Inspiring the Future of Internal Medicine
+        </p>
+
+        {/* Subtitle & Organizers */}
+        <p className="max-w-2xl mt-3 text-base sm:text-lg text-slate-600 leading-relaxed font-normal">
           Bangladesh's premier national gathering of future diagnosticians,
           internists, and clinical researchers for a transformative day of academic excellence.
         </p>
 
+        <p className="text-xs font-semibold text-slate-500 mt-2">
+          Organized by DMC IMIG &nbsp;•&nbsp; ACP Bangladesh Chapter &nbsp;•&nbsp; Bangladesh Society of Medicine (BSM)
+        </p>
+
         {/* Key Information Chips */}
-        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-8 animate-fade-in">
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-8">
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 shadow-xs text-xs font-semibold text-slate-700">
             <Icons.Date className="w-4 h-4 text-sky-600" />
             <span>17 September 2026</span>
@@ -113,27 +122,30 @@ export function Hero({ onOpenRegister, onOpenAbstract }) {
           </div>
         </div>
 
-        {/* Primary CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3.5 mt-8 w-full max-w-md sm:max-w-none sm:w-auto animate-slide-up">
+        {/* Primary CTA Buttons with High-Contrast Solid Non-Blending Styles */}
+        <div className="flex flex-col sm:flex-row gap-4 mt-9 w-full max-w-md sm:max-w-none sm:w-auto">
+          {/* Register Button: Vibrant Cerulean / Sky Solid */}
           <button
             id="open-register-btn"
             onClick={onOpenRegister}
-            className="btn-primary text-base py-3.5 px-8 shadow-lg shadow-sky-500/25 flex items-center justify-center gap-2 group"
+            className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-bold text-white rounded-xl shadow-md bg-sky-600 hover:bg-sky-700 active:bg-sky-800 transition-colors"
           >
             <span>Register for Festival</span>
-            <Icons.Back className="w-4 h-4 rotate-180 group-hover:translate-x-1 transition-transform duration-150" />
+            <Icons.Back className="w-4 h-4 rotate-180" />
           </button>
+
+          {/* Submit Abstract Button: Solid Deep Teal (High Contrast, Never Blends with Background) */}
           <button
             id="open-abstract-btn"
             onClick={onOpenAbstract}
-            className="btn-outline text-base py-3.5 px-8 flex items-center justify-center gap-2 hover:border-teal-500 hover:text-teal-700"
+            className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-bold text-white rounded-xl shadow-md bg-teal-700 hover:bg-teal-800 active:bg-teal-900 border border-teal-800 transition-colors"
           >
-            <Icons.Upload className="w-4 h-4 text-teal-600" />
+            <Icons.Upload className="w-5 h-5 text-teal-100" />
             <span>Submit Abstract</span>
           </button>
         </div>
 
-        {/* Deadline & Urgency Ribbon */}
+        {/* Deadline Ribbon */}
         <div className="mt-5 flex items-center justify-center gap-2 text-xs text-slate-500">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
           <span>Registration & Abstract Deadline:</span>
@@ -165,12 +177,12 @@ export function Hero({ onOpenRegister, onOpenAbstract }) {
               return (
                 <div
                   key={i}
-                  className="card p-5 hover:border-sky-300 hover:shadow-elevated hover:-translate-y-1 transition-all duration-200 group bg-white"
+                  className="card p-5 hover:border-slate-300 transition-colors bg-white"
                 >
-                  <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${act.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-200`}>
+                  <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${act.color} flex items-center justify-center mb-4`}>
                     <Icon className="w-5 h-5" />
                   </div>
-                  <h3 className="text-base font-bold text-slate-900 group-hover:text-sky-600 transition-colors">
+                  <h3 className="text-base font-bold text-slate-900">
                     {act.title}
                   </h3>
                   <p className="text-xs text-slate-600 mt-1.5 leading-relaxed font-normal">
@@ -204,3 +216,4 @@ export function Hero({ onOpenRegister, onOpenAbstract }) {
     </section>
   );
 }
+

@@ -4,20 +4,22 @@ import { Home } from "./pages/Home";
 import { Register } from "./pages/Register";
 import { SubmitAbstract } from "./pages/SubmitAbstract";
 import { Admin } from "./pages/Admin";
+import { getCurrentRoute } from "./utils/navigation";
 
 export function App() {
-  const [route, setRoute] = useState(
-    window.location.hash.replace(/^#\/?/, "").toLowerCase() || "home"
-  );
+  const [route, setRoute] = useState(getCurrentRoute);
 
   useEffect(() => {
-    function onHashChange() {
-      const path = window.location.hash.replace(/^#\/?/, "").toLowerCase();
-      setRoute(path || "home");
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    function handleLocationChange() {
+      setRoute(getCurrentRoute());
     }
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
+
+    window.addEventListener("popstate", handleLocationChange);
+    window.addEventListener("hashchange", handleLocationChange);
+    return () => {
+      window.removeEventListener("popstate", handleLocationChange);
+      window.removeEventListener("hashchange", handleLocationChange);
+    };
   }, []);
 
   if (route === "register") {
@@ -36,3 +38,4 @@ export function App() {
 }
 
 export default App;
+

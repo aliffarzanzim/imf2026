@@ -32,10 +32,13 @@ export async function onRequestPut(context) {
 
     if (!env.ABSTRACTS_BUCKET) {
       return new Response(
-        JSON.stringify({ error: "R2 bucket binding (ABSTRACTS_BUCKET) not configured." }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "R2 storage bucket is pending activation in the Cloudflare Dashboard. Please enable R2 at https://dash.cloudflare.com to accept file uploads.",
+        }),
+        { status: 503, headers: { "Content-Type": "application/json" } }
       );
     }
+
 
     const url = new URL(request.url);
     const key = url.searchParams.get("key");

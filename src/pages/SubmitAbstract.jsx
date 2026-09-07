@@ -5,6 +5,8 @@ import { Footer } from "../components/Footer";
 import { Icons } from "../assets/icons";
 import { getUploadUrl, uploadFileToR2, submitAbstract } from "../utils/api";
 import { SuccessCard } from "../components/SuccessCard";
+import { navigate } from "../utils/navigation";
+
 
 const BATCHES = ["K-79", "K-80", "K-81", "K-82", "K-83", "Other"];
 const YEARS   = ["1st Year", "2nd Year", "3rd Year", "4th Year", "Final Year"];
@@ -64,6 +66,36 @@ export function SubmitAbstract() {
     setError("");
   }
 
+  function handleAbstractFileChange(file) {
+    if (!file) return;
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (!["pdf", "docx", "doc"].includes(ext)) {
+      setError(`Unsupported file format (.${ext}). Please upload a PDF or Word document (.docx).`);
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      setError(`File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is 100 MB.`);
+      return;
+    }
+    setError("");
+    setAbstractFile(file);
+  }
+
+  function handlePresentationFileChange(file) {
+    if (!file) return;
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (!["pdf", "ppt", "pptx"].includes(ext)) {
+      setError(`Unsupported format (.${ext}). Presentations must be PowerPoint (.pptx) or PDF.`);
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      setError(`File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is 100 MB.`);
+      return;
+    }
+    setError("");
+    setPresentationFile(file);
+  }
+
   function validateStep() {
     if (step === 0) {
       if (!form.fullName.trim())    return "Lead author's name is required.";
@@ -110,6 +142,7 @@ export function SubmitAbstract() {
     window.scrollTo({ top: 120, behavior: "smooth" });
   }
 
+
   async function handleSubmit(e) {
     e?.preventDefault();
     const err = validateStep();
@@ -142,10 +175,12 @@ export function SubmitAbstract() {
         presFileName = presentationFile.name;
       }
 
-      setUploadStage("Finalizing submission…");
       setProgress(100);
+      setUploadStage("Upload complete! Finalizing submission…");
+      await new Promise((r) => setTimeout(r, 650));
 
       const res = await submitAbstract({
+
         ...form,
         r2FileKey:            fileKey,
         fileName:             abstractFile.name,
@@ -168,20 +203,20 @@ export function SubmitAbstract() {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex flex-col">
         <Header
-          onHome={() => { window.location.hash = "#/"; }}
-          onOpenAdmin={() => { window.location.hash = "#/admin"; }}
+          onHome={() => navigate("/")}
+          onOpenAdmin={() => navigate("/admin")}
         />
         <main className="flex-1 flex items-center justify-center pt-24 pb-16 px-4">
           <SuccessCard
             regNumber={absNumber}
             title="Abstract Submitted Successfully!"
             subtitle="Your manuscript has been safely submitted to the IMF 2026 Scientific Committee."
-            onClose={() => { window.location.hash = "#/"; }}
+            onClose={() => navigate("/")}
           />
         </main>
         <Footer
-          onOpenAdmin={() => { window.location.hash = "#/admin"; }}
-          onOpenRegister={() => { window.location.hash = "#/register"; }}
+          onOpenAdmin={() => navigate("/admin")}
+          onOpenRegister={() => navigate("/register")}
           onOpenAbstract={() => { setAbsNumber(null); setStep(0); }}
         />
       </div>
@@ -191,21 +226,21 @@ export function SubmitAbstract() {
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col">
       <Header
-        onHome={() => { window.location.hash = "#/"; }}
-        onOpenAdmin={() => { window.location.hash = "#/admin"; }}
+        onHome={() => navigate("/")}
+        onOpenAdmin={() => navigate("/admin")}
       />
 
       <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto w-full">
         {/* Navigation Breadcrumb */}
         <div className="mb-6 flex items-center gap-2 text-xs font-semibold text-slate-500">
           <button
-            onClick={() => { window.location.hash = "#/"; }}
+            onClick={() => navigate("/")}
             className="hover:text-slate-900 transition-colors"
           >
             Home
           </button>
           <span>/</span>
-          <span className="text-teal-600">Scientific Abstract Submission</span>
+          <span className="text-teal-600 font-bold">Scientific Abstract Submission</span>
         </div>
 
         {/* Header Banner */}
@@ -272,43 +307,80 @@ export function SubmitAbstract() {
           </div>
         </div>
 
-        {/* Error Alert */}
+        {/* Error Alert with Retry button */}
         {error && (
-          <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-2 animate-fade-in">
-            <Icons.Alert className="w-5 h-5 flex-shrink-0" />
-            <span>{error}</span>
+          <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <Icons.Alert className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-rose-900">Submission Notice</p>
+                <p className="text-xs text-rose-700 mt-0.5 leading-relaxed">{error}</p>
+              </div>
+            </div>
+            {step === STEPS.length - 1 && !loading && (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="text-xs font-bold text-rose-800 bg-rose-100 hover:bg-rose-200 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+              >
+                Retry
+              </button>
+            )}
           </div>
         )}
 
         {/* Upload Status Card (During Upload) */}
         {loading && (
-          <div className="mb-6 p-5 rounded-xl bg-teal-50 border border-teal-200 text-teal-900 shadow-sm animate-fade-in">
-            <div className="flex items-center justify-between text-xs font-bold mb-2">
-              <span className="flex items-center gap-2">
-                <Icons.Spinner className="w-4 h-4 animate-spin text-teal-600" />
-                {uploadStage}
-              </span>
-              <span>{progress}%</span>
+          <div className="mb-6 p-5 rounded-2xl bg-white border border-sky-200 shadow-md">
+            <div className="flex items-center justify-between text-xs font-bold mb-2.5">
+              <div className="flex items-center gap-2">
+                {progress === 100 ? (
+                  <div className="w-5 h-5 rounded-full bg-sky-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                    <Icons.Check className="w-3.5 h-3.5" />
+                  </div>
+                ) : (
+                  <Icons.Spinner className="w-4 h-4 animate-spin text-sky-600 flex-shrink-0" />
+                )}
+                <span className="text-slate-800 font-semibold">{uploadStage}</span>
+              </div>
+
+              {progress === 100 ? (
+                <span className="inline-flex items-center gap-1.5 text-sky-700 bg-sky-50 border border-sky-200 font-bold px-3 py-1 rounded-full text-xs shadow-xs">
+                  <div className="w-3.5 h-3.5 rounded-full bg-sky-600 text-white flex items-center justify-center">
+                    <Icons.Check className="w-2.5 h-2.5" />
+                  </div>
+                  <span>100% Complete</span>
+                </span>
+              ) : (
+                <span className="text-sky-700 font-mono font-bold bg-sky-50 px-2.5 py-1 rounded-md border border-sky-100">
+                  {progress}%
+                </span>
+              )}
             </div>
-            <div className="w-full h-2 bg-teal-200 rounded-full overflow-hidden">
+
+            <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-teal-600 transition-all duration-200"
+                className={`h-full transition-all duration-200 rounded-full ${
+                  progress === 100 ? "bg-sky-600" : "bg-gradient-to-r from-teal-500 to-sky-600"
+                }`}
                 style={{ width: `${progress}%` }}
               />
             </div>
           </div>
         )}
 
+
         {/* Form Body Card */}
         <div className="card p-6 sm:p-8 bg-white border border-slate-200 shadow-card">
 
           {/* ── STEP 0: Lead Author Info ── */}
           {step === 0 && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Lead Author & Presenter Details</h2>
                 <p className="text-xs text-slate-500 mt-0.5">Contact details for all official correspondence regarding your abstract.</p>
               </div>
+
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="form-group sm:col-span-2">
@@ -508,7 +580,7 @@ export function SubmitAbstract() {
 
           {/* ── STEP 2: File Upload ── */}
           {step === 2 && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Upload Manuscript & Documents</h2>
                 <p className="text-xs text-slate-500 mt-0.5">Accepted formats: PDF or DOCX (maximum size 100 MB).</p>
@@ -517,51 +589,90 @@ export function SubmitAbstract() {
               {/* Main Abstract File */}
               <div className="form-group">
                 <label className="form-label form-label-required">Abstract File (.pdf, .docx)</label>
-                <div className="upload-zone">
+                <div className="upload-zone relative">
                   <input
                     type="file"
                     accept=".pdf,.docx,.doc"
                     id="abstract-file"
                     className="hidden"
                     onChange={(e) => {
-                      if (e.target.files?.[0]) setAbstractFile(e.target.files[0]);
+                      if (e.target.files?.[0]) handleAbstractFileChange(e.target.files[0]);
                     }}
                   />
-                  <label htmlFor="abstract-file" className="cursor-pointer flex flex-col items-center gap-2">
+                  <label htmlFor="abstract-file" className="cursor-pointer flex flex-col items-center gap-2 w-full">
                     <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center">
                       <Icons.Upload className="w-6 h-6" />
                     </div>
                     <span className="text-sm font-bold text-slate-800">
                       {abstractFile ? abstractFile.name : "Click to select or drag manuscript file"}
                     </span>
-                    <span className="text-xs text-slate-400">
-                      {abstractFile
-                        ? `${(abstractFile.size / 1024 / 1024).toFixed(2)} MB • Ready`
-                        : "PDF or Microsoft Word (.docx) up to 100 MB"}
-                    </span>
+                    {abstractFile ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-xs font-bold shadow-xs">
+                          <div className="w-3.5 h-3.5 rounded-full bg-sky-600 text-white flex items-center justify-center">
+                            <Icons.Check className="w-2.5 h-2.5" />
+                          </div>
+                          <span>100% Ready ({(abstractFile.size / 1024 / 1024).toFixed(2)} MB)</span>
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">
+                        PDF or Microsoft Word (.docx) up to 100 MB
+                      </span>
+                    )}
                   </label>
+                  {abstractFile && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAbstractFile(null);
+                      }}
+                      className="mt-2 text-xs font-semibold text-rose-600 hover:text-rose-800 underline"
+                    >
+                      Remove file
+                    </button>
+                  )}
                 </div>
               </div>
 
               {/* Optional Presentation File */}
               <div className="form-group pt-4 border-t border-slate-100">
                 <label className="form-label">Presentation Deck or Slides (Optional)</label>
-                <div className="upload-zone py-4">
+                <div className="upload-zone py-4 relative">
                   <input
                     type="file"
                     accept=".pdf,.ppt,.pptx"
                     id="pres-file"
                     className="hidden"
                     onChange={(e) => {
-                      if (e.target.files?.[0]) setPresentationFile(e.target.files[0]);
+                      if (e.target.files?.[0]) handlePresentationFileChange(e.target.files[0]);
                     }}
                   />
-                  <label htmlFor="pres-file" className="cursor-pointer flex flex-col items-center gap-1.5">
+                  <label htmlFor="pres-file" className="cursor-pointer flex flex-col items-center gap-1.5 w-full">
                     <Icons.File className="w-6 h-6 text-slate-400" />
                     <span className="text-xs font-semibold text-slate-700">
                       {presentationFile ? presentationFile.name : "Attach Presentation Slides (.pptx / .pdf)"}
                     </span>
+                    {presentationFile && (
+                      <span className="inline-flex items-center gap-1 text-sky-700 text-xs font-semibold bg-sky-50 px-2.5 py-0.5 rounded-full border border-sky-200">
+                        <Icons.Check className="w-3 h-3 text-sky-600" />
+                        Attached ({(presentationFile.size / 1024 / 1024).toFixed(2)} MB)
+                      </span>
+                    )}
                   </label>
+                  {presentationFile && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPresentationFile(null);
+                      }}
+                      className="mt-1 text-xs font-semibold text-rose-600 hover:text-rose-800 underline"
+                    >
+                      Remove presentation
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -569,7 +680,8 @@ export function SubmitAbstract() {
 
           {/* ── STEP 3: Review & Ethics Confirmation ── */}
           {step === 3 && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6">
+
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Submission Review & Ethics Declaration</h2>
                 <p className="text-xs text-slate-500 mt-0.5">Confirm the authenticity and presentation consent for this submission.</p>
@@ -626,7 +738,7 @@ export function SubmitAbstract() {
             ) : (
               <button
                 type="button"
-                onClick={() => { window.location.hash = "#/"; }}
+                onClick={() => navigate("/")}
                 className="btn-outline text-xs py-2.5 px-5"
               >
                 Cancel
@@ -667,10 +779,11 @@ export function SubmitAbstract() {
       </main>
 
       <Footer
-        onOpenAdmin={() => { window.location.hash = "#/admin"; }}
-        onOpenRegister={() => { window.location.hash = "#/register"; }}
+        onOpenAdmin={() => navigate("/admin")}
+        onOpenRegister={() => navigate("/register")}
         onOpenAbstract={() => { setStep(0); }}
       />
+
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { Footer } from "../components/Footer";
 import { Icons } from "../assets/icons";
 import { submitRegistration } from "../utils/api";
 import { SuccessCard } from "../components/SuccessCard";
+import { navigate } from "../utils/navigation";
+
 
 const BATCHES = ["K-79", "K-80", "K-81", "K-82", "K-83", "Other"];
 const YEARS   = ["1st Year", "2nd Year", "3rd Year", "4th Year", "Final Year"];
@@ -137,21 +139,21 @@ export function Register() {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex flex-col">
         <Header
-          onHome={() => { window.location.hash = "#/"; }}
-          onOpenAdmin={() => { window.location.hash = "#/admin"; }}
+          onHome={() => navigate("/")}
+          onOpenAdmin={() => navigate("/admin")}
         />
         <main className="flex-1 flex items-center justify-center pt-24 pb-16 px-4">
           <SuccessCard
             regNumber={regNumber}
             title="Registration Confirmed!"
             subtitle="Your place at the Internal Medicine Festival 2026 has been reserved."
-            onClose={() => { window.location.hash = "#/"; }}
+            onClose={() => navigate("/")}
           />
         </main>
         <Footer
-          onOpenAdmin={() => { window.location.hash = "#/admin"; }}
+          onOpenAdmin={() => navigate("/admin")}
           onOpenRegister={() => { setRegNumber(null); setStep(0); }}
-          onOpenAbstract={() => { window.location.hash = "#/abstract"; }}
+          onOpenAbstract={() => navigate("/abstract")}
         />
       </div>
     );
@@ -160,21 +162,21 @@ export function Register() {
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col">
       <Header
-        onHome={() => { window.location.hash = "#/"; }}
-        onOpenAdmin={() => { window.location.hash = "#/admin"; }}
+        onHome={() => navigate("/")}
+        onOpenAdmin={() => navigate("/admin")}
       />
 
       <main className="flex-1 pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto w-full">
         {/* Navigation Breadcrumb */}
         <div className="mb-6 flex items-center gap-2 text-xs font-semibold text-slate-500">
           <button
-            onClick={() => { window.location.hash = "#/"; }}
+            onClick={() => navigate("/")}
             className="hover:text-slate-900 transition-colors"
           >
             Home
           </button>
           <span>/</span>
-          <span className="text-sky-600">Festival Registration</span>
+          <span className="text-sky-600 font-bold">Festival Registration</span>
         </div>
 
         {/* Page Header Banner */}
@@ -504,7 +506,7 @@ export function Register() {
             ) : (
               <button
                 type="button"
-                onClick={() => { window.location.hash = "#/"; }}
+                onClick={() => navigate("/")}
                 className="btn-outline text-xs py-2.5 px-5"
               >
                 Cancel
@@ -545,10 +547,11 @@ export function Register() {
       </main>
 
       <Footer
-        onOpenAdmin={() => { window.location.hash = "#/admin"; }}
+        onOpenAdmin={() => navigate("/admin")}
         onOpenRegister={() => { setStep(0); }}
-        onOpenAbstract={() => { window.location.hash = "#/abstract"; }}
+        onOpenAbstract={() => navigate("/abstract")}
       />
+
     </div>
   );
 }

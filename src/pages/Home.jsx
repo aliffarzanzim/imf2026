@@ -3,25 +3,26 @@ import React from "react";
 import { Header } from "../components/Header";
 import { Hero } from "../components/Hero";
 import { Footer } from "../components/Footer";
+import { navigate } from "../utils/navigation";
 
 export function Home() {
   function handleRegister() {
-    window.location.hash = "#/register";
+    navigate("/register");
   }
 
   function handleAbstract() {
-    window.location.hash = "#/abstract";
+    navigate("/abstract");
   }
 
   function handleAdmin() {
-    window.location.hash = "#/admin";
+    navigate("/admin");
   }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc]">
       <Header
         onOpenAdmin={handleAdmin}
-        onHome={() => { window.location.hash = "#/"; }}
+        onHome={() => navigate("/")}
         onOpenRegister={handleRegister}
       />
       <main className="flex-1">
@@ -38,3 +39,4 @@ export function Home() {
     </div>
   );
 }
+
