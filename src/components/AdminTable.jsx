@@ -1,5 +1,6 @@
 // src/components/AdminTable.jsx
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Icons } from "../assets/icons";
 import {
   fetchAdminRecords,
@@ -58,18 +59,36 @@ function StatCard({ label, value, sub, icon: Icon, gradient, textColor }) {
 function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDeleteAbstract }) {
   const [activeSubTab, setActiveSubTab] = useState("overview");
 
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    const origOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = origOverflow;
+    };
+  }, [onClose]);
+
   const activities = Array.isArray(record.activities)
     ? record.activities
     : (record.activities ? [record.activities] : []);
 
   const token = sessionStorage.getItem("imf_admin_token") || "";
 
-  return (
-    <div className="modal-overlay z-50 p-3 sm:p-6 overflow-y-auto">
-      <div className="modal-panel max-w-2xl w-full bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden my-auto animate-fade-in">
+  const content = (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-slate-950/75 backdrop-blur-sm overflow-y-auto animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="modal-panel max-w-2xl w-full bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-slide-up">
         
         {/* Header Strip */}
-        <div className="bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 p-5 sm:p-6 text-white relative">
+        <div className="bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 p-5 sm:p-6 text-white relative flex-shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-teal-400 flex items-center justify-center text-white font-extrabold text-lg shadow-md shadow-sky-500/20 flex-shrink-0">
@@ -129,7 +148,7 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDelete
         </div>
 
         {/* Content Body */}
-        <div className="p-5 sm:p-6 space-y-6 max-h-[65vh] overflow-y-auto">
+        <div className="p-5 sm:p-6 space-y-6 overflow-y-auto flex-1">
           {activeSubTab === "overview" && (
             <>
               {/* Personal & Academic Details */}
@@ -353,7 +372,7 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDelete
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
+        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 flex-shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -377,6 +396,8 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDelete
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(content, document.body) : content;
 }
 
 function EditModal({ record, onSave, onClose }) {
@@ -389,6 +410,19 @@ function EditModal({ record, onSave, onClose }) {
   });
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    const origOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = origOverflow;
+    };
+  }, [onClose]);
+
   async function handleSave(e) {
     e?.preventDefault();
     setSaving(true);
@@ -400,9 +434,14 @@ function EditModal({ record, onSave, onClose }) {
     }
   }
 
-  return (
-    <div className="modal-overlay z-50 p-4">
-      <div className="modal-panel max-w-md p-6 sm:p-8 animate-fade-in">
+  const content = (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm overflow-y-auto animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="modal-panel max-w-md w-full p-6 sm:p-8 bg-white rounded-2xl shadow-2xl border border-slate-200 my-auto animate-slide-up">
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
           <div>
             <h3 className="text-lg font-bold text-slate-900">Edit Registration</h3>
@@ -488,6 +527,8 @@ function EditModal({ record, onSave, onClose }) {
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(content, document.body) : content;
 }
 
 export function AdminTable() {
@@ -1082,9 +1123,14 @@ export function AdminTable() {
       )}
 
       {/* Delete Confirmation Modal */}
-      {confirmDelete && (
-        <div className="modal-overlay z-50 p-4">
-          <div className="modal-panel max-w-sm p-6 text-center animate-fade-in">
+      {confirmDelete && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => { if (e.target === e.currentTarget) setConfirmDelete(null); }}
+        >
+          <div className="modal-panel max-w-sm w-full p-6 text-center bg-white rounded-2xl shadow-2xl border border-slate-200 my-auto animate-slide-up">
             <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
               <Icons.Delete className="w-6 h-6" />
             </div>
@@ -1107,7 +1153,8 @@ export function AdminTable() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
