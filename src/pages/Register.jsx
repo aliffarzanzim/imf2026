@@ -1111,8 +1111,8 @@ export function Register({ initialMode = "register" }) {
         <div className="print:hidden">
           <Footer
             onOpenAdmin={() => navigate("/admin")}
-            onOpenRegister={() => { setSuccessInfo(null); setStep(0); setActiveTab("register"); }}
-            onOpenAbstract={() => { setSuccessInfo(null); setActiveTab("register"); setForm((f) => ({ ...f, submitAbstract: true })); setStep(2); }}
+            onOpenRegister={() => { setSuccessInfo(null); setStep(0); setActiveTab("register"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+            onOpenAbstract={() => { setSuccessInfo(null); setActiveTab("register"); setForm((f) => ({ ...f, submitAbstract: true })); setStep(0); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           />
         </div>
       </div>
@@ -1248,6 +1248,27 @@ export function Register({ initialMode = "register" }) {
                     <h2 className="text-lg font-bold text-slate-900">Personal &amp; Academic Information</h2>
                     <p className="text-xs text-slate-500 mt-0.5">Please provide your details. These will also be attached to your abstract if you choose to submit one.</p>
                   </div>
+
+                  {form.submitAbstract && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-teal-50/80 border border-teal-200 text-xs text-teal-800">
+                      <div className="flex items-center gap-2">
+                        <Icons.Doc className="w-4 h-4 flex-shrink-0 text-teal-600" />
+                        <span>
+                          <strong>Abstract Submission Mode:</strong> Enter your presenter details below first. You will enter your abstract title, text, and manuscript in Step 3.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab("manage");
+                          window.scrollTo({ top: 120, behavior: "smooth" });
+                        }}
+                        className="text-teal-700 underline font-bold hover:text-teal-900 whitespace-nowrap self-start sm:self-auto"
+                      >
+                        Already registered? &rarr;
+                      </button>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div className="form-group sm:col-span-2">
@@ -3140,8 +3161,8 @@ export function Register({ initialMode = "register" }) {
 
       <Footer
         onOpenAdmin={() => navigate("/admin")}
-        onOpenRegister={() => { setActiveTab("register"); setStep(0); }}
-        onOpenAbstract={() => { setActiveTab("register"); setForm((f) => ({ ...f, submitAbstract: true })); setStep(2); }}
+        onOpenRegister={() => { setActiveTab("register"); setStep(0); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+        onOpenAbstract={() => { setActiveTab("register"); setForm((f) => ({ ...f, submitAbstract: true })); setStep(0); window.scrollTo({ top: 0, behavior: "smooth" }); }}
       />
     </div>
   );
