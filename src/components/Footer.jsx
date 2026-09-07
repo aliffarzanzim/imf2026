@@ -12,7 +12,7 @@ export function Footer({ onOpenAdmin, onOpenRegister, onOpenAbstract }) {
           <div className="md:col-span-2">
             <div className="flex items-center gap-2.5 mb-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-600 to-teal-500 flex items-center justify-center text-white shadow-xs">
-                <Icons.HeartPulse className="w-4 h-4" />
+                <Icons.Stethoscope className="w-4 h-4" />
               </div>
               <span className="text-base font-extrabold tracking-tight text-slate-900">
                 IMF 2026

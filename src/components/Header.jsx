@@ -10,13 +10,13 @@ export function Header({ onOpenAdmin, onHome }) {
         {/* Clean Logo + Festival Title (no clutter) */}
         <button
           onClick={onHome}
-          className="flex items-center gap-3 text-left focus:outline-none"
+          className="flex items-center gap-3 text-left focus:outline-none group"
           aria-label="Go to home"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
-            <Icons.HeartPulse className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-sky-500/20 group-hover:scale-105 transition-transform">
+            <Icons.Stethoscope className="w-5 h-5" />
           </div>
-          <span className="text-lg font-black tracking-tight text-slate-900 leading-none">
+          <span className="text-lg font-black tracking-tight text-slate-900 leading-none group-hover:text-sky-600 transition-colors">
             IMF 2026
           </span>
         </button>
