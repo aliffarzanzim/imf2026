@@ -71,7 +71,9 @@ export function Hero({ onOpenRegister, onOpenAbstract }) {
   }, []);
 
   return (
-    <section className="relative pt-16 pb-6 sm:pt-20 sm:pb-8 overflow-hidden">
+    <section className="relative pt-24 pb-8 sm:pt-28 sm:pb-10 overflow-hidden">
+
+
       {/* Background ambient lighting */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-tr from-sky-400/15 to-teal-300/15 rounded-full blur-3xl pointer-events-none -z-10" />
 

@@ -76,14 +76,15 @@ export function Footer({ onOpenAdmin, onOpenRegister, onOpenAbstract }) {
         {/* Bottom Credits Strip — Fully Responsive on Smartphone & Desktop */}
         <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
           
-          {/* Maintained By: Alif Farzan Zim FIRST, then Aiman Talukder */}
-          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-1.5 gap-y-1 text-slate-600 text-center sm:text-left leading-relaxed">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block flex-shrink-0 mr-0.5" />
-            <span>Maintained by</span>
-            <strong className="text-slate-900 font-bold whitespace-nowrap">Alif Farzan Zim (DMC K-79)</strong>
+          {/* Maintained By: Alif Farzan Zim FIRST, then Aiman Talukder (faded/muted) */}
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-1.5 gap-y-1 text-slate-500 text-center sm:text-left leading-relaxed">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80 inline-block flex-shrink-0 mr-0.5" />
+            <span className="text-slate-400">Maintained by</span>
+            <span className="text-slate-600 font-medium whitespace-nowrap">Alif Farzan Zim (DMC K-79)</span>
             <span className="text-slate-400">&amp;</span>
-            <strong className="text-slate-900 font-bold whitespace-nowrap">Aiman Talukder (DMC K-79)</strong>
+            <span className="text-slate-600 font-medium whitespace-nowrap">Aiman Talukder (DMC K-79)</span>
           </div>
+
 
           {/* Copyright & Discreet Admin Access */}
           <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-2 sm:gap-4 text-slate-400 text-center">
