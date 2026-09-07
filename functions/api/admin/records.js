@@ -123,6 +123,36 @@ export async function onRequestDelete(context) {
     }
 
     if (type === "registration") {
+      // Find the registration details first to cascade delete attached abstracts & R2 files
+      const reg = await env.DB.prepare(
+        "SELECT reg_number, email FROM registrations WHERE id = ?"
+      ).bind(id).first();
+
+      if (reg) {
+        // Find all abstracts linked to this registration
+        const { results: linkedAbstracts } = await env.DB.prepare(
+          "SELECT id, r2_file_key, presentation_file_key FROM abstracts WHERE (reg_number IS NOT NULL AND reg_number = ?) OR (email IS NOT NULL AND LOWER(email) = LOWER(?))"
+        ).bind(reg.reg_number, reg.email).all();
+
+        if (linkedAbstracts && linkedAbstracts.length > 0) {
+          for (const abs of linkedAbstracts) {
+            if (env.ABSTRACTS_BUCKET) {
+              if (abs.r2_file_key) {
+                try { await env.ABSTRACTS_BUCKET.delete(abs.r2_file_key); } catch (_) {}
+              }
+              if (abs.presentation_file_key) {
+                try { await env.ABSTRACTS_BUCKET.delete(abs.presentation_file_key); } catch (_) {}
+              }
+            }
+          }
+
+          // Delete linked abstracts
+          await env.DB.prepare(
+            "DELETE FROM abstracts WHERE (reg_number IS NOT NULL AND reg_number = ?) OR (email IS NOT NULL AND LOWER(email) = LOWER(?))"
+          ).bind(reg.reg_number, reg.email).run();
+        }
+      }
+
       await env.DB.prepare("DELETE FROM registrations WHERE id = ?").bind(id).run();
     } else if (type === "abstract") {
       // Fetch file keys to clean up R2 objects
