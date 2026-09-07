@@ -1,5 +1,4 @@
-// src/utils/export.js — Excel & CSV export utilities (SheetJS)
-import * as XLSX from "xlsx";
+// src/utils/export.js — Excel & CSV export utilities (SheetJS loaded on-demand)
 
 function sanitizeCell(val) {
   if (typeof val === "string" && /^[=+@\-\t\r]/.test(val)) {
@@ -23,7 +22,8 @@ function flattenRecord(rec) {
   return sanitized;
 }
 
-export function exportToExcel(records, fileName = "IMF_2026_Data.xlsx") {
+export async function exportToExcel(records, fileName = "IMF_2026_Data.xlsx") {
+  const XLSX = await import("xlsx");
   const flat = records.map(flattenRecord);
   const worksheet = XLSX.utils.json_to_sheet(flat);
   const workbook  = XLSX.utils.book_new();
@@ -36,15 +36,16 @@ export function exportToExcel(records, fileName = "IMF_2026_Data.xlsx") {
   XLSX.writeFile(workbook, fileName);
 }
 
-export function exportRegistrationsExcel(records) {
-  exportToExcel(records, "IMF_2026_Registrations.xlsx");
+export async function exportRegistrationsExcel(records) {
+  await exportToExcel(records, "IMF_2026_Registrations.xlsx");
 }
 
-export function exportAbstractsExcel(records) {
-  exportToExcel(records, "IMF_2026_Abstracts.xlsx");
+export async function exportAbstractsExcel(records) {
+  await exportToExcel(records, "IMF_2026_Abstracts.xlsx");
 }
 
-export function exportToCSV(records, fileName = "IMF_2026_Data.csv") {
+export async function exportToCSV(records, fileName = "IMF_2026_Data.csv") {
+  const XLSX = await import("xlsx");
   const flat = records.map(flattenRecord);
   const worksheet = XLSX.utils.json_to_sheet(flat);
   const csv       = XLSX.utils.sheet_to_csv(worksheet);
@@ -59,10 +60,11 @@ export function exportToCSV(records, fileName = "IMF_2026_Data.csv") {
   URL.revokeObjectURL(url);
 }
 
-export function exportRegistrationsCSV(records) {
-  exportToCSV(records, "IMF_2026_Registrations.csv");
+export async function exportRegistrationsCSV(records) {
+  await exportToCSV(records, "IMF_2026_Registrations.csv");
 }
 
-export function exportAbstractsCSV(records) {
-  exportToCSV(records, "IMF_2026_Abstracts.csv");
+export async function exportAbstractsCSV(records) {
+  await exportToCSV(records, "IMF_2026_Abstracts.csv");
 }
+

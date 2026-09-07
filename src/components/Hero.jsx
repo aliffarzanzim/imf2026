@@ -47,24 +47,25 @@ const ACTIVITIES = [
   },
 ];
 
+function getInitialCountdown() {
+  const deadline = new Date("2026-09-14T23:59:59").getTime();
+  const now = new Date().getTime();
+  const diff = Math.max(0, deadline - now);
+  return {
+    days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+    hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+    minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+  };
+}
+
 export function Hero({ onOpenRegister, onOpenAbstract }) {
-  // Live countdown to deadline: 14 September 2026 23:59:59
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0 });
+  // Synchronous countdown to eliminate initial render flicker / layout shift
+  const [timeLeft, setTimeLeft] = useState(getInitialCountdown);
 
   useEffect(() => {
-    function updateCountdown() {
-      const deadline = new Date("2026-09-14T23:59:59").getTime();
-      const now = new Date().getTime();
-      const diff = Math.max(0, deadline - now);
-
-      setTimeLeft({
-        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-      });
-    }
-    updateCountdown();
-    const timer = setInterval(updateCountdown, 60000);
+    const timer = setInterval(() => {
+      setTimeLeft(getInitialCountdown());
+    }, 60000);
     return () => clearInterval(timer);
   }, []);
 

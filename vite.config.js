@@ -10,8 +10,8 @@ export default defineConfig({
         manualChunks: {
           vendor: ["react", "react-dom"],
           icons: ["lucide-react"],
-          xlsx: ["xlsx"],
         },
+
       },
     },
   },
