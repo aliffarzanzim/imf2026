@@ -1,0 +1,267 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+
+  /* ── Buttons ── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold text-white
+           rounded-lg shadow-md transition-all duration-200 select-none
+           bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)]
+           active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+  }
+
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold text-white
+           rounded-lg shadow-md transition-all duration-200 select-none
+           bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)]
+           active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 font-medium
+           rounded-lg border border-[var(--color-border)] bg-white
+           text-[var(--color-text-body)] hover:bg-slate-50 hover:border-slate-300
+           transition-all duration-200 select-none active:scale-95
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium
+           rounded-lg text-[var(--color-danger)] bg-[var(--color-danger-bg)]
+           hover:bg-red-200 transition-all duration-200 active:scale-95;
+  }
+
+  .btn-success {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium
+           rounded-lg text-[var(--color-success)] bg-[var(--color-success-bg)]
+           hover:bg-green-200 transition-all duration-200 active:scale-95;
+  }
+
+  .btn-icon {
+    @apply inline-flex items-center justify-center w-9 h-9 rounded-lg
+           text-[var(--color-text-muted)] hover:bg-slate-100 hover:text-[var(--color-text-main)]
+           transition-all duration-150 active:scale-90;
+  }
+
+  /* ── Header ── */
+  .glass-header {
+    @apply fixed top-0 left-0 right-0 z-50 transition-all duration-300
+           border-b border-[var(--color-border)]
+           bg-[var(--color-surface-translucent)] backdrop-blur-md;
+  }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center p-4
+           bg-slate-900/60 backdrop-blur-sm animate-fade-in overflow-y-auto;
+  }
+
+  .modal-panel {
+    @apply relative w-full max-w-2xl my-4 bg-[var(--color-surface)]
+           border border-[var(--color-border)] rounded-2xl
+           shadow-[var(--shadow-modal)] animate-slide-up;
+  }
+
+  .modal-panel-lg {
+    @apply relative w-full max-w-3xl my-4 bg-[var(--color-surface)]
+           border border-[var(--color-border)] rounded-2xl
+           shadow-[var(--shadow-modal)] animate-slide-up;
+  }
+
+  .modal-header {
+    @apply flex items-center justify-between px-8 py-5
+           border-b border-[var(--color-border)];
+  }
+
+  .modal-body {
+    @apply px-8 py-6 max-h-[75vh] overflow-y-auto;
+  }
+
+  .modal-footer {
+    @apply flex items-center justify-end gap-3 px-8 py-5
+           border-t border-[var(--color-border)] bg-slate-50 rounded-b-2xl;
+  }
+
+  /* ── Cards ── */
+  .card {
+    @apply bg-[var(--color-surface)] border border-[var(--color-border)]
+           rounded-xl shadow-[var(--shadow-card)];
+  }
+
+  .card-sm {
+    @apply bg-[var(--color-surface)] border border-[var(--color-border)]
+           rounded-lg shadow-[var(--shadow-xs)];
+  }
+
+  /* ── Form Elements ── */
+  .form-group {
+    @apply flex flex-col gap-1.5;
+  }
+
+  .form-label {
+    @apply text-sm font-medium text-[var(--color-text-body)];
+  }
+
+  .form-label-required::after {
+    content: " *";
+    @apply text-[var(--color-danger)];
+  }
+
+  .form-input {
+    @apply w-full px-4 py-2.5 text-sm bg-white text-[var(--color-text-main)]
+           border border-[var(--color-border)] rounded-lg
+           transition-all duration-150 outline-none
+           placeholder:text-[var(--color-text-subtle)]
+           focus:ring-2 focus:ring-teal-500/30 focus:border-[var(--color-accent)];
+  }
+
+  .form-select {
+    @apply form-input appearance-none cursor-pointer;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 12px center;
+    background-repeat: no-repeat;
+    background-size: 16px;
+    padding-right: 2.5rem;
+  }
+
+  .form-textarea {
+    @apply form-input resize-none leading-relaxed;
+  }
+
+  .form-hint {
+    @apply text-xs text-[var(--color-text-muted)] mt-0.5;
+  }
+
+  .form-error {
+    @apply text-xs text-[var(--color-danger)] mt-0.5 flex items-center gap-1;
+  }
+
+  /* ── Section Divider ── */
+  .section-divider {
+    @apply flex items-center gap-3 py-4;
+  }
+
+  .section-divider::before,
+  .section-divider::after {
+    content: "";
+    @apply flex-1 h-px bg-[var(--color-border)];
+  }
+
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-widest text-[var(--color-text-muted)] whitespace-nowrap;
+  }
+
+  /* ── Checkbox / Radio ── */
+  .check-item {
+    @apply flex items-center gap-3 p-3 rounded-lg border border-[var(--color-border)]
+           cursor-pointer transition-all duration-150
+           hover:bg-[var(--color-primary-light)] hover:border-[var(--color-primary)];
+  }
+
+  .check-item input[type="checkbox"],
+  .check-item input[type="radio"] {
+    @apply w-4 h-4 accent-[var(--color-accent)] cursor-pointer flex-shrink-0;
+  }
+
+  .check-item-label {
+    @apply text-sm text-[var(--color-text-body)] cursor-pointer;
+  }
+
+  /* ── Badge ── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-3 py-1 text-xs font-medium
+           rounded-full border;
+  }
+
+  .badge-primary {
+    @apply badge bg-[var(--color-primary-light)] text-[var(--color-primary)]
+           border-blue-200;
+  }
+
+  .badge-accent {
+    @apply badge bg-[var(--color-accent-light)] text-[var(--color-accent)]
+           border-teal-200;
+  }
+
+  .badge-neutral {
+    @apply badge bg-slate-100 text-[var(--color-text-muted)] border-slate-200;
+  }
+
+  /* ── Progress Bar ── */
+  .progress-track {
+    @apply w-full h-2 bg-slate-100 rounded-full overflow-hidden;
+  }
+
+  .progress-fill {
+    @apply h-full bg-[var(--color-accent)] rounded-full transition-all duration-300 ease-out;
+  }
+
+  /* ── Table ── */
+  .data-table {
+    @apply w-full text-sm border-collapse;
+  }
+
+  .data-table th {
+    @apply text-left text-xs font-semibold uppercase tracking-wider
+           text-[var(--color-text-muted)] px-4 py-3
+           bg-slate-50 border-b border-[var(--color-border)]
+           sticky top-0 z-10;
+  }
+
+  .data-table td {
+    @apply px-4 py-3 border-b border-slate-50 text-[var(--color-text-body)]
+           align-middle;
+  }
+
+  .data-table tr:hover td {
+    @apply bg-slate-50/60;
+  }
+
+  /* ── Alert / Toast ── */
+  .alert {
+    @apply flex items-start gap-3 px-4 py-3 rounded-lg text-sm;
+  }
+
+  .alert-info {
+    @apply alert bg-[var(--color-info-bg)] text-[var(--color-info)]
+           border border-blue-200;
+  }
+
+  .alert-success {
+    @apply alert bg-[var(--color-success-bg)] text-[var(--color-success)]
+           border border-green-200;
+  }
+
+  .alert-warning {
+    @apply alert bg-[var(--color-warning-bg)] text-[var(--color-warning)]
+           border border-amber-200;
+  }
+
+  /* ── Upload Zone ── */
+  .upload-zone {
+    @apply flex flex-col items-center justify-center gap-2 p-6
+           border-2 border-dashed border-[var(--color-border)] rounded-xl
+           cursor-pointer text-center
+           transition-all duration-200
+           hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-light)];
+  }
+
+  .upload-zone-active {
+    @apply border-[var(--color-accent)] bg-[var(--color-accent-light)];
+  }
+
+  /* ── Stat Card ── */
+  .stat-card {
+    @apply card p-5 flex flex-col gap-1;
+  }
+
+  .stat-value {
+    @apply text-3xl font-black text-[var(--color-text-main)];
+  }
+
+  .stat-label {
+    @apply text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)];
+  }
+}
