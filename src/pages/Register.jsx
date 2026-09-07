@@ -2097,16 +2097,12 @@ export function Register({ initialMode = "register" }) {
                       </div>
                       <h2 className="text-xl font-bold text-slate-900">Manage Your Registration</h2>
                       
-                      <div className="mt-2.5 mb-3 px-3.5 py-2 rounded-xl bg-sky-50 border border-sky-100 text-sky-800 text-xs text-center leading-relaxed flex items-center justify-center gap-2">
+                      <div className="mt-2.5 px-3.5 py-2 rounded-xl bg-sky-50 border border-sky-100 text-sky-800 text-xs text-center leading-relaxed flex items-center justify-center gap-2">
                         <Icons.Edit className="w-3.5 h-3.5 text-sky-600 flex-shrink-0" />
                         <span>
                           <strong>Already registered?</strong> You can edit your registration details or submit &amp; update your scientific abstract here.
                         </span>
                       </div>
-
-                      <p className="text-xs text-slate-500">
-                        Enter your registered email address. We will send a 6-digit verification code to your inbox to access and edit your details.
-                      </p>
                     </div>
 
                     {lookupError && (
