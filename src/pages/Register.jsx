@@ -517,58 +517,8 @@ export function Register({ initialMode = "register" }) {
               {activeTab === "register" ? "Festival Registration" : "Manage Registration & Abstract"}
             </span>
           </div>
-
-          {/* Direct Switcher Link */}
-          <button
-            onClick={() => {
-              setActiveTab(activeTab === "register" ? "manage" : "register");
-              setError("");
-              setLookupError("");
-            }}
-            className="text-xs font-bold text-sky-700 hover:text-sky-900 hover:underline flex items-center gap-1.5"
-          >
-            {activeTab === "register" ? (
-              <>
-                <Icons.User className="w-3.5 h-3.5 text-sky-600" />
-                <span>Already Registered? Edit Info / Abstract →</span>
-              </>
-            ) : (
-              <>
-                <Icons.Plus className="w-3.5 h-3.5 text-sky-600" />
-                <span>New Registration Form →</span>
-              </>
-            )}
-          </button>
         </div>
 
-        {/* ── Mode Tabs ── */}
-        <div className="flex border-b border-slate-200 mb-6 bg-white rounded-2xl p-1.5 shadow-xs border">
-          <button
-            type="button"
-            onClick={() => { setActiveTab("register"); setError(""); }}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-              activeTab === "register"
-                ? "bg-sky-600 text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-          >
-            <Icons.Check className="w-4 h-4" />
-            <span>New Delegate Registration</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => { setActiveTab("manage"); setLookupError(""); }}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-              activeTab === "manage"
-                ? "bg-sky-600 text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-          >
-            <Icons.Edit className="w-4 h-4" />
-            <span>Already Registered? Manage &amp; Submit Abstract</span>
-          </button>
-        </div>
 
         {/* ════════════════════════════════════════════════════════════
             TAB 1: NEW REGISTRATION
