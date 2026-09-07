@@ -590,6 +590,10 @@ export function AdminTable() {
   const [editRecord, setEditRecord]   = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize]       = useState(25); // 10, 25, 50, 100, 0 for all
+
   async function load() {
     setLoading(true);
     try {
@@ -645,6 +649,22 @@ export function AdminTable() {
       return matchSearch && matchBatch;
     });
   }, [data.registrations, data.abstracts, search, batchFilter, filterType]);
+
+  // Reset to page 1 whenever any filter or page size changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, batchFilter, filterType, pageSize]);
+
+  const effectivePageSize = Number(pageSize) || 25;
+  const totalItems = filtered.length;
+  const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(totalItems / effectivePageSize));
+  const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedRecords = useMemo(() => {
+    if (pageSize === 0) return filtered;
+    const startIndex = (validCurrentPage - 1) * effectivePageSize;
+    return filtered.slice(startIndex, startIndex + effectivePageSize);
+  }, [filtered, validCurrentPage, effectivePageSize, pageSize]);
 
   async function handleDelete(type, id) {
     try {
@@ -931,15 +951,16 @@ export function AdminTable() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((r, i) => {
+                  {paginatedRecords.map((r, i) => {
                     const userAbs = getAbstractsForDelegate(r);
                     const absCount = userAbs.length;
                     const actList = parseActivities(r.activities);
                     const compList = parseCompetitions(r.competition_category);
+                    const globalIndex = pageSize === 0 ? i + 1 : (validCurrentPage - 1) * effectivePageSize + i + 1;
 
                     return (
                       <tr key={r.id}>
-                        <td className="text-xs text-slate-400 font-mono">{i + 1}</td>
+                        <td className="text-xs text-slate-400 font-mono">{globalIndex}</td>
                         <td className="whitespace-nowrap">
                           <span className="font-mono text-xs font-extrabold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-md border border-sky-200 whitespace-nowrap inline-block">
                             {r.reg_number}
@@ -1065,7 +1086,7 @@ export function AdminTable() {
 
             {/* Mobile Responsive Cards */}
             <div className="md:hidden divide-y-4 divide-slate-200">
-              {filtered.map((r) => {
+              {paginatedRecords.map((r) => {
                 const userAbs = getAbstractsForDelegate(r);
                 const absCount = userAbs.length;
                 const actList = parseActivities(r.activities);
@@ -1174,13 +1195,82 @@ export function AdminTable() {
           </>
         )}
 
-        {/* Table Footer Summary */}
+        {/* Table Footer Summary & Pagination */}
         {!loading && filtered.length > 0 && (
-          <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
-            <span>
-              Showing <strong>{filtered.length}</strong> of <strong>{(data.registrations || []).length}</strong> delegates
-            </span>
-            <span>Cloudflare D1 • Synced live</span>
+          <div className="px-4 py-3.5 border-t border-slate-200 bg-slate-50/80 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+            {/* Left: Range and Per-Page Selector */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <span>
+                Showing <strong>{totalItems === 0 ? 0 : (validCurrentPage - 1) * effectivePageSize + 1}</strong>–<strong>{pageSize === 0 ? totalItems : Math.min(validCurrentPage * effectivePageSize, totalItems)}</strong> of <strong>{totalItems}</strong> {totalItems === 1 ? "delegate" : "delegates"}
+                {totalItems !== (data.registrations || []).length && (
+                  <span className="text-slate-400 text-[11px] ml-1">
+                    (filtered from {(data.registrations || []).length} total)
+                  </span>
+                )}
+              </span>
+
+              <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+                <span className="text-slate-400 text-[11px]">Show:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="form-select py-1 px-2 text-xs rounded-md border-slate-200 bg-white"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={0}>All</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Right: Page Navigation Controls */}
+            {pageSize !== 0 && totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={validCurrentPage === 1}
+                  className="px-2.5 py-1 rounded-md border border-slate-200 bg-white font-medium hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs"
+                  title="First Page"
+                >
+                  «
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={validCurrentPage === 1}
+                  className="px-2.5 py-1 rounded-md border border-slate-200 bg-white font-medium hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs"
+                  title="Previous Page"
+                >
+                  ‹ Prev
+                </button>
+
+                <span className="px-2.5 py-1 font-semibold text-slate-700 font-mono text-xs">
+                  Page {validCurrentPage} of {totalPages}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={validCurrentPage === totalPages}
+                  className="px-2.5 py-1 rounded-md border border-slate-200 bg-white font-medium hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs"
+                  title="Next Page"
+                >
+                  Next ›
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={validCurrentPage === totalPages}
+                  className="px-2.5 py-1 rounded-md border border-slate-200 bg-white font-medium hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs"
+                  title="Last Page"
+                >
+                  »
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
