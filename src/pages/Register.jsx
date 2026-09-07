@@ -530,7 +530,7 @@ export function Register({ initialMode = "register" }) {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <span className="inline-block px-2.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 text-[11px] font-bold tracking-wider uppercase mb-2">
-                    Free Registration &bull; Abstract Submission Included
+                    Abstract Submission Included
                   </span>
                   <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
                     Delegate Registration Portal
