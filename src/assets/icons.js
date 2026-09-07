@@ -48,6 +48,7 @@ import {
   Microscope,
   HeartPulse,
   Lock,
+  ExternalLink,
 } from "lucide-react";
 
 export const Icons = {
@@ -73,6 +74,7 @@ export const Icons = {
   ChevronDown:   ChevronDown,
   Plus:          Plus,
   Link:          Link,
+  ExternalLink:  ExternalLink,
   Eye:           Eye,
   EyeOff:        EyeOff,
 

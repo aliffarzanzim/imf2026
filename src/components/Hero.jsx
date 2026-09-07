@@ -12,18 +12,21 @@ const ORGANIZERS = [
     role: "Dhaka Medical College Internal Medicine Interest Group",
     logo: imigLogo,
     alt: "DMC IMIG Logo",
+    url: "https://acpbd.org/",
   },
   {
     name: "ACP Bangladesh Chapter",
     role: "American College of Physicians",
     logo: acpLogo,
     alt: "ACP Bangladesh Chapter Logo",
+    url: "https://acpbd.org/",
   },
   {
     name: "BSM",
     role: "Bangladesh Society of Medicine",
     logo: bsmLogo,
     alt: "Bangladesh Society of Medicine Logo",
+    url: "https://bsmedicine.org/",
   },
 ];
 
@@ -229,9 +232,12 @@ export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {ORGANIZERS.map((org, i) => (
-                <div
+                <a
                   key={i}
-                  className="p-6 rounded-2xl border border-slate-200/90 bg-white text-center shadow-xs hover:border-slate-300 hover:shadow-card transition-all flex flex-col items-center justify-between group"
+                  href={org.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-6 rounded-2xl border border-slate-200/90 bg-white text-center shadow-xs hover:border-slate-300 hover:shadow-card hover:-translate-y-1 transition-all flex flex-col items-center justify-between group cursor-pointer"
                 >
                   <div className="h-24 w-full flex items-center justify-center mb-4">
                     <img
@@ -242,10 +248,13 @@ export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
                     />
                   </div>
                   <div>
-                    <div className="font-extrabold text-slate-900 text-sm tracking-tight">{org.name}</div>
+                    <div className="font-extrabold text-slate-900 text-sm tracking-tight group-hover:text-teal-700 transition-colors flex items-center justify-center gap-1.5">
+                      <span>{org.name}</span>
+                      <Icons.ExternalLink className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
                     <div className="text-xs text-slate-500 font-medium mt-1">{org.role}</div>
                   </div>
-                </div>
+                </a>
               ))}
             </div>
           </div>
@@ -257,7 +266,12 @@ export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
             </p>
 
             <div className="flex justify-center">
-              <div className="p-6 sm:px-12 sm:py-7 rounded-2xl border border-slate-200/90 bg-white text-center shadow-xs hover:border-slate-300 hover:shadow-card transition-all flex flex-col items-center justify-center group max-w-md w-full">
+              <a
+                href="https://www.aristopharma.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-6 sm:px-12 sm:py-7 rounded-2xl border border-slate-200/90 bg-white text-center shadow-xs hover:border-slate-300 hover:shadow-card hover:-translate-y-1 transition-all flex flex-col items-center justify-center group max-w-md w-full cursor-pointer"
+              >
                 <div className="h-16 w-full flex items-center justify-center mb-2">
                   <img
                     src={aristopharmaLogo}
@@ -267,9 +281,12 @@ export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
                   />
                 </div>
                 <div>
-                  <div className="font-extrabold text-slate-900 text-sm tracking-tight">Aristopharma Ltd.</div>
+                  <div className="font-extrabold text-slate-900 text-sm tracking-tight group-hover:text-teal-700 transition-colors flex items-center justify-center gap-1.5">
+                    <span>Aristopharma Ltd.</span>
+                    <Icons.ExternalLink className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </div>
-              </div>
+              </a>
             </div>
           </div>
 

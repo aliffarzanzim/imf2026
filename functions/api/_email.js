@@ -56,6 +56,10 @@ export async function sendEmail({ env, to, subject, html, text, from, replyTo })
       replyTo: reply,
       name: "IMF 2026",
       fromName: "IMF 2026",
+      senderName: "IMF 2026",
+      displayName: "IMF 2026",
+      sender: "IMF 2026",
+      from: "IMF 2026",
     };
 
     for (let i = 0; i < scriptUrls.length; i++) {

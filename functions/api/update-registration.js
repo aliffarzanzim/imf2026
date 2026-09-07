@@ -468,13 +468,9 @@ export async function onRequestPost(context) {
 
     // Check current count of abstracts for this delegate
     const remainingAbsCountRow = await env.DB.prepare(
-      "SELECT COUNT(*) as cnt FROM abstracts WHERE reg_number = ?"
-    ).bind(reg.reg_number).first();
+      "SELECT COUNT(*) as cnt FROM abstracts WHERE reg_number = ? OR LOWER(TRIM(email)) = ?"
+    ).bind(reg.reg_number, updatedEmail.trim().toLowerCase()).first();
     const hasRemainingAbstracts = (remainingAbsCountRow?.cnt || 0) > 0;
-
-    await env.DB.prepare(
-      "UPDATE registrations SET has_abstract = ? WHERE id = ?"
-    ).bind(hasRemainingAbstracts ? 1 : 0, reg.id).run();
 
     // Fetch refreshed records to return to client
     const updatedReg = await env.DB.prepare(
@@ -527,7 +523,7 @@ export async function onRequestPost(context) {
       competitionCategory: updatedReg.competition_category ? updatedReg.competition_category.split(", ").filter(Boolean) : [],
       priorExperience: updatedReg.prior_experience || "",
       queries: updatedReg.queries || "",
-      hasAbstract: Boolean(updatedReg.has_abstract),
+      hasAbstract: hasRemainingAbstracts,
       createdAt: updatedReg.created_at,
       updatedAt: updatedReg.updated_at,
     };

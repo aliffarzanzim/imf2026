@@ -66,16 +66,48 @@ export function Footer({ onOpenAdmin, onOpenRegister, onOpenAbstract }) {
               Organized by
             </h4>
             <ul className="space-y-1.5 text-xs text-slate-500 mb-4">
-              <li className="font-semibold text-slate-700">DMC IMIG</li>
-              <li className="font-semibold text-slate-700">ACP Bangladesh Chapter</li>
-              <li className="font-semibold text-slate-700">Bangladesh Society of Medicine</li>
+              <li>
+                <a
+                  href="https://acpbd.org/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-slate-700 hover:text-sky-600 transition-colors inline-block"
+                >
+                  DMC IMIG
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://acpbd.org/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-slate-700 hover:text-sky-600 transition-colors inline-block"
+                >
+                  ACP Bangladesh Chapter
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://bsmedicine.org/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-slate-700 hover:text-sky-600 transition-colors inline-block"
+                >
+                  Bangladesh Society of Medicine
+                </a>
+              </li>
             </ul>
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-2">
               Sponsored by
             </h4>
-            <p className="text-xs font-semibold text-slate-700">
+            <a
+              href="https://www.aristopharma.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-semibold text-slate-700 hover:text-teal-600 transition-colors inline-block"
+            >
               Aristopharma Ltd.
-            </p>
+            </a>
           </div>
         </div>
 
