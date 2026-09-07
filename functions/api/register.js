@@ -211,6 +211,7 @@ export async function onRequestPost(context) {
           institution: data.institution.trim(),
           batch: data.batch.trim(),
           activities: data.activities || [],
+          competitionCategory: data.competitionCategory,
         }),
       });
 

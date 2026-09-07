@@ -12,6 +12,8 @@ export function SuccessCard({
   institution,
   batch,
   academicYear,
+  activities = [],
+  competitionCategory,
   title = "Registration Confirmed!",
   subtitle = "Your place at the Internal Medicine Festival 2026 has been reserved.",
   onClose,
@@ -173,6 +175,17 @@ export function SuccessCard({
                     </span>
                     <span className="font-semibold text-slate-800 block mt-0.5">
                       {[batch, academicYear].filter(Boolean).join(" • ")}
+                    </span>
+                  </div>
+                )}
+
+                {competitionCategory && (
+                  <div className="sm:col-span-2">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Competition Preference(s)
+                    </span>
+                    <span className="font-semibold text-slate-800 block mt-0.5">
+                      {Array.isArray(competitionCategory) ? competitionCategory.join(", ") : String(competitionCategory)}
                     </span>
                   </div>
                 )}

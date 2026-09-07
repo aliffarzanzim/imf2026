@@ -140,10 +140,18 @@ export function buildRegistrationEmail({
   institution,
   batch,
   activities,
+  competitionCategory,
 }) {
   const activitiesList = Array.isArray(activities) && activities.length > 0
     ? activities.map(a => `<li style="margin-bottom: 4px; color: #1e293b;">${a}</li>`).join("")
     : `<li style="color: #64748b;">General Delegate</li>`;
+
+  const competitionList = Array.isArray(competitionCategory)
+    ? competitionCategory
+    : (competitionCategory ? String(competitionCategory).split(",").map(s => s.trim()).filter(Boolean) : []);
+  const competitionHtml = competitionList.length > 0
+    ? competitionList.map(c => `<li style="margin-bottom: 4px; color: #1e293b;">${c}</li>`).join("")
+    : `<li style="color: #64748b;">Not participating in a competition (Attendee only)</li>`;
 
   return `
 <!DOCTYPE html>
@@ -212,10 +220,18 @@ export function buildRegistrationEmail({
       </table>
 
       <!-- Activities Section -->
-      <div style="margin-bottom: 24px;">
+      <div style="margin-bottom: 20px;">
         <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #334155;">Registered Activities & Events:</h4>
         <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
           ${activitiesList}
+        </ul>
+      </div>
+
+      <!-- Competition Preference(s) Section -->
+      <div style="margin-bottom: 24px;">
+        <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #334155;">Competition Preference(s):</h4>
+        <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
+          ${competitionHtml}
         </ul>
       </div>
 

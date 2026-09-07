@@ -59,8 +59,8 @@ function createEmptyAbstract(defaultPresenter = "") {
   return {
     id: "abs_" + Math.random().toString(36).substring(2, 9),
     title: "",
-    submissionType: SUBMISSION_TYPES[0],
-    presentationCategory: PRESENTATION_CATEGORIES[0],
+    submissionType: "",
+    presentationCategory: "",
     abstractBody: "",
     keywords: "",
     presenterName: defaultPresenter || "",
@@ -216,8 +216,8 @@ export function Register({ initialMode = "register" }) {
           id: abs.id || "abs_" + Math.random().toString(36).substring(2, 9),
           abstractNumber: abs.abstractNumber || null,
           title: abs.title || "",
-          submissionType: abs.submissionType || SUBMISSION_TYPES[0],
-          presentationCategory: abs.presentationCategory || PRESENTATION_CATEGORIES[0],
+          submissionType: abs.submissionType || "",
+          presentationCategory: abs.presentationCategory || "",
           abstractBody: abs.abstractBody || "",
           keywords: abs.keywords || "",
           presenterName: abs.presenterName || reg.fullName || "",
@@ -262,8 +262,8 @@ export function Register({ initialMode = "register" }) {
       abstracts: rawAbsList.map((abs) => ({
         id: abs.id || null,
         title: (abs.title || "").trim(),
-        submissionType: abs.submissionType || SUBMISSION_TYPES[0],
-        presentationCategory: abs.presentationCategory || PRESENTATION_CATEGORIES[0],
+        submissionType: (abs.submissionType || "").trim(),
+        presentationCategory: (abs.presentationCategory || "").trim(),
         abstractBody: (abs.abstractBody || "").trim(),
         keywords: (abs.keywords || "").trim(),
         presenterName: (abs.presenterName || reg.fullName || "").trim(),
@@ -296,8 +296,8 @@ export function Register({ initialMode = "register" }) {
       abstracts: manageAbstracts.map((abs) => ({
         id: typeof abs.id === "number" ? abs.id : null,
         title: (abs.title || "").trim(),
-        submissionType: abs.submissionType || SUBMISSION_TYPES[0],
-        presentationCategory: abs.presentationCategory || PRESENTATION_CATEGORIES[0],
+        submissionType: (abs.submissionType || "").trim(),
+        presentationCategory: (abs.presentationCategory || "").trim(),
         abstractBody: (abs.abstractBody || "").trim(),
         keywords: (abs.keywords || "").trim(),
         presenterName: (abs.presenterName || manageReg.fullName || "").trim(),
@@ -647,6 +647,8 @@ export function Register({ initialMode = "register" }) {
         institution: form.institution,
         batch: form.batch,
         academicYear: form.academicYear,
+        activities: form.activities,
+        competitionCategory: form.competitionCategory,
         title: form.submitAbstract ? "Registration & Abstract Received!" : "Registration Confirmed!",
         subtitle: form.submitAbstract
           ? (absCount > 1
@@ -1093,6 +1095,8 @@ export function Register({ initialMode = "register" }) {
             institution={successInfo.institution || form.institution}
             batch={successInfo.batch || form.batch}
             academicYear={successInfo.academicYear || form.academicYear}
+            activities={successInfo.activities || form.activities}
+            competitionCategory={successInfo.competitionCategory || form.competitionCategory}
             title={successInfo.title}
             subtitle={successInfo.subtitle}
             onClose={() => navigate("/")}
@@ -1558,10 +1562,11 @@ export function Register({ initialMode = "register" }) {
                               <select
                                 id={`subType-${idx}`}
                                 className="form-select"
-                                value={abs.submissionType}
+                                value={abs.submissionType || ""}
                                 onChange={(e) => updateAbstract(idx, "submissionType", e.target.value)}
                                 required
                               >
+                                <option value="">—</option>
                                 {SUBMISSION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                               </select>
                             </div>
@@ -1573,10 +1578,11 @@ export function Register({ initialMode = "register" }) {
                               <select
                                 id={`presCat-${idx}`}
                                 className="form-select"
-                                value={abs.presentationCategory}
+                                value={abs.presentationCategory || ""}
                                 onChange={(e) => updateAbstract(idx, "presentationCategory", e.target.value)}
                                 required
                               >
+                                <option value="">—</option>
                                 {PRESENTATION_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                               </select>
                             </div>
@@ -2670,10 +2676,11 @@ export function Register({ initialMode = "register" }) {
                               <select
                                 id={`mSubType-${idx}`}
                                 className="form-select"
-                                value={abs.submissionType}
+                                value={abs.submissionType || ""}
                                 onChange={(e) => updateManageAbstract(idx, "submissionType", e.target.value)}
                                 required
                               >
+                                <option value="">—</option>
                                 {SUBMISSION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                               </select>
                             </div>
@@ -2685,10 +2692,11 @@ export function Register({ initialMode = "register" }) {
                               <select
                                 id={`mPresCat-${idx}`}
                                 className="form-select"
-                                value={abs.presentationCategory}
+                                value={abs.presentationCategory || ""}
                                 onChange={(e) => updateManageAbstract(idx, "presentationCategory", e.target.value)}
                                 required
                               >
+                                <option value="">—</option>
                                 {PRESENTATION_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                               </select>
                             </div>
