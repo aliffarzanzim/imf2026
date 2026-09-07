@@ -640,6 +640,7 @@ export function Register({ initialMode = "register" }) {
         regNumber: res.regNumber,
         abstractNumber: res.abstractNumber || (res.abstractNumbers ? res.abstractNumbers.join(", ") : null),
         phone: form.phone,
+        email: form.email,
         title: form.submitAbstract ? "Registration & Abstract Received!" : "Registration Confirmed!",
         subtitle: form.submitAbstract
           ? (absCount > 1
@@ -1082,10 +1083,10 @@ export function Register({ initialMode = "register" }) {
             subtitle={successInfo.subtitle}
             onClose={() => navigate("/")}
             onManage={() => {
+              const userEmail = successInfo.email || form.email;
               setSuccessInfo(null);
               setActiveTab("manage");
-              setLookupReg(successInfo.regNumber);
-              setLookupPhone(successInfo.phone);
+              if (userEmail) setLookupEmail(userEmail);
             }}
           />
         </main>
@@ -2058,7 +2059,7 @@ export function Register({ initialMode = "register" }) {
                   <button
                     type="button"
                     onClick={handleSubmitRegistration}
-                    disabled={loading || !form.declaration || uploadingFile}
+                    disabled={loading || !form.declaration || abstracts.some((a) => a.isUploading)}
                     className="btn-primary text-xs py-2.5 px-7 font-bold shadow-md flex items-center gap-2"
                   >
                     {loading ? (
