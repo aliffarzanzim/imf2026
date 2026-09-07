@@ -13,6 +13,7 @@ import {
   exportAbstractsExcel,
   exportAbstractsCSV,
 } from "../utils/export";
+import { MedicalCollegeInput } from "./MedicalCollegeInput";
 
 const BATCHES = ["K-79", "K-80", "K-81", "K-82", "K-83", "Other"];
 
@@ -94,11 +95,10 @@ function EditModal({ record, onSave, onClose }) {
 
           <div className="form-group">
             <label className="form-label">Medical College</label>
-            <input
-              type="text"
-              className="form-input"
+            <MedicalCollegeInput
+              placeholder="Search or enter medical college"
               value={form.institution}
-              onChange={(e) => setForm((f) => ({ ...f, institution: e.target.value }))}
+              onChange={(val) => setForm((f) => ({ ...f, institution: val }))}
               required
             />
           </div>

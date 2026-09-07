@@ -24,8 +24,8 @@ const ACTIVITIES = [
   },
   {
     icon: Icons.Trophy,
-    title: "Quiz & Olympiad",
-    desc: "High-stakes medical competition testing clinical diagnosis and pathology.",
+    title: "Quiz Competition",
+    desc: "High-stakes medical competition testing clinical diagnosis and pathology trivia.",
     color: "from-amber-500/10 to-orange-500/10 text-amber-600",
   },
   {

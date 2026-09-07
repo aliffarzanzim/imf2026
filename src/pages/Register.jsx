@@ -11,6 +11,7 @@ import {
   uploadFileToR2,
 } from "../utils/api";
 import { SuccessCard } from "../components/SuccessCard";
+import { MedicalCollegeInput } from "../components/MedicalCollegeInput";
 import { navigate } from "../utils/navigation";
 
 const BATCHES = ["K-79", "K-80", "K-81", "K-82", "K-83", "Other"];
@@ -21,7 +22,6 @@ const ACTIVITIES = [
   { id: "mental", label: "Mental Health Session", desc: "Mindfulness and physician burnout workshop" },
   { id: "career", label: "Career Counselling Session", desc: "Post-graduate training roadmaps & international exams" },
   { id: "quiz", label: "Quiz Competition", desc: "Fast-paced medical diagnosis and trivia" },
-  { id: "olympiad", label: "Olympiad", desc: "Rigorous pathology, pharmacology & clinical medicine tests" },
   { id: "cr", label: "Clinical Reasoning Challenge", desc: "Interactive mystery diagnostic dilemmas" },
   { id: "case", label: "Clinical Case Challenge", desc: "In-depth presentation of rare patient cases" },
   { id: "presentation", label: "Academic Topic Presentation", desc: "Oral presentation on internal medicine topics" },
@@ -31,7 +31,6 @@ const ACTIVITIES = [
 
 const COMPETITION_CATEGORIES = [
   "Quiz",
-  "Olympiad",
   "Clinical Reasoning Challenge",
   "Clinical Case Challenge",
   "Academic Topic Presentation",
@@ -624,13 +623,11 @@ export function Register({ initialMode = "register" }) {
 
                     <div className="form-group sm:col-span-2">
                       <label className="form-label form-label-required" htmlFor="institution">Medical College / Institution</label>
-                      <input
+                      <MedicalCollegeInput
                         id="institution"
-                        type="text"
-                        className="form-input"
-                        placeholder="e.g. Dhaka Medical College"
+                        placeholder="Search or enter your medical college"
                         value={form.institution}
-                        onChange={(e) => set("institution", e.target.value)}
+                        onChange={(val) => set("institution", val)}
                         required
                       />
                     </div>
@@ -664,7 +661,7 @@ export function Register({ initialMode = "register" }) {
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label form-label-required" htmlFor="phone">Contact Number (WhatsApp)</label>
+                      <label className="form-label form-label-required" htmlFor="phone">Contact Number</label>
                       <input
                         id="phone"
                         type="tel"
@@ -1077,7 +1074,7 @@ export function Register({ initialMode = "register" }) {
                         id="priorExp"
                         rows={3}
                         className="form-input"
-                        placeholder="Mention previous Olympiads, research presentations, or medical quiz competitions you've participated in..."
+                        placeholder="Mention previous research presentations or medical quiz competitions you've participated in..."
                         value={form.priorExperience}
                         onChange={(e) => set("priorExperience", e.target.value)}
                       />
@@ -1468,15 +1465,14 @@ export function Register({ initialMode = "register" }) {
 
                     <div className="form-group sm:col-span-2">
                       <label className="form-label" htmlFor="mInst">Medical College</label>
-                      <input
+                      <MedicalCollegeInput
                         id="mInst"
-                        type="text"
-                        className="form-input"
+                        placeholder="Search or enter your medical college"
                         value={manageData.registration.institution || ""}
-                        onChange={(e) =>
+                        onChange={(val) =>
                           setManageData({
                             ...manageData,
-                            registration: { ...manageData.registration, institution: e.target.value },
+                            registration: { ...manageData.registration, institution: val },
                           })
                         }
                       />
