@@ -8,10 +8,8 @@ import {
   getAdminDownloadUrl,
 } from "../utils/api";
 import {
-  exportRegistrationsExcel,
-  exportRegistrationsCSV,
-  exportAbstractsExcel,
-  exportAbstractsCSV,
+  exportMergedDelegatesExcel,
+  exportMergedDelegatesCSV,
 } from "../utils/export";
 import { MedicalCollegeInput } from "./MedicalCollegeInput";
 
@@ -25,6 +23,13 @@ const BATCH_COLORS = {
   "K-83": "bg-purple-50 text-purple-700 border-purple-200",
   "Other": "bg-slate-100 text-slate-700 border-slate-200",
 };
+
+function formatBytes(bytes) {
+  if (!bytes || isNaN(bytes)) return "0 B";
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
 
 function StatCard({ label, value, sub, icon: Icon, gradient, textColor }) {
   return (
@@ -42,6 +47,333 @@ function StatCard({ label, value, sub, icon: Icon, gradient, textColor }) {
           {value}
         </span>
         {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Full Delegate Profile & Submitted Abstracts Modal
+ */
+function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDeleteAbstract }) {
+  const [activeSubTab, setActiveSubTab] = useState("overview");
+
+  const activities = Array.isArray(record.activities)
+    ? record.activities
+    : (record.activities ? [record.activities] : []);
+
+  const token = sessionStorage.getItem("imf_admin_token") || "";
+
+  return (
+    <div className="modal-overlay z-50 p-3 sm:p-6 overflow-y-auto">
+      <div className="modal-panel max-w-2xl w-full bg-white rounded-2xl shadow-elevated border border-slate-200 overflow-hidden my-auto animate-fade-in">
+        
+        {/* Header Strip */}
+        <div className="bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 p-5 sm:p-6 text-white relative">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 to-teal-400 flex items-center justify-center text-white font-extrabold text-lg shadow-md shadow-sky-500/20 flex-shrink-0">
+                {(record.full_name || "?").charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                    {record.full_name}
+                  </h3>
+                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/30">
+                    {record.reg_number}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-0.5 flex items-center gap-2 flex-wrap">
+                  <span>{record.email}</span>
+                  <span>•</span>
+                  <span>{record.phone}</span>
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors"
+            >
+              <Icons.Close className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Sub-Tabs */}
+          <div className="flex items-center gap-2 mt-5 pt-3 border-t border-white/10 text-xs">
+            <button
+              onClick={() => setActiveSubTab("overview")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                activeSubTab === "overview"
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-300 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              Personal &amp; Participation
+            </button>
+            <button
+              onClick={() => setActiveSubTab("abstracts")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
+                activeSubTab === "abstracts"
+                  ? "bg-teal-500 text-white shadow-xs"
+                  : "text-slate-300 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <span>Scientific Abstracts</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px] font-bold">
+                {abstracts.length}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Content Body */}
+        <div className="p-5 sm:p-6 space-y-6 max-h-[65vh] overflow-y-auto">
+          {activeSubTab === "overview" && (
+            <>
+              {/* Personal & Academic Details */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                  <Icons.User className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Academic &amp; Contact Details</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Medical College / Institution</span>
+                    <span className="font-semibold text-slate-800 text-sm mt-0.5 block">{record.institution}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Batch &amp; Academic Year</span>
+                    <span className="font-semibold text-slate-800 text-sm mt-0.5 block">
+                      {record.batch} ({record.academic_year || "Not specified"})
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Contact Phone</span>
+                    <a href={`tel:${record.phone}`} className="font-mono font-semibold text-sky-600 hover:underline mt-0.5 block">
+                      {record.phone}
+                    </a>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Registered Email</span>
+                    <a href={`mailto:${record.email}`} className="font-semibold text-sky-600 hover:underline mt-0.5 block break-all">
+                      {record.email}
+                    </a>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Registration Timestamp</span>
+                    <span className="font-medium text-slate-600 mt-0.5 block">
+                      {record.created_at ? new Date(record.created_at).toLocaleString("en-GB") : "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Abstract Status</span>
+                    <span className="font-bold text-teal-700 mt-0.5 block">
+                      {abstracts.length > 0 ? `${abstracts.length} Abstract(s) Submitted` : "No Abstracts Submitted"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Festival Participation */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                  <Icons.Activity className="w-3.5 h-3.5 text-teal-600" />
+                  <span>Registered Activities &amp; Events</span>
+                </h4>
+                {activities.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {activities.map((act, i) => (
+                      <span
+                        key={i}
+                        className="px-3 py-1.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200/80 text-xs font-semibold flex items-center gap-1.5"
+                      >
+                        <Icons.Check className="w-3.5 h-3.5 text-sky-600 flex-shrink-0" />
+                        <span>{act}</span>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">No specific activities selected.</p>
+                )}
+              </div>
+
+              {/* Competitions / Extra Info */}
+              {(record.competition_category || record.prior_experience || record.queries) && (
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                    <Icons.Trophy className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Competitions &amp; Additional Information</span>
+                  </h4>
+                  <div className="space-y-2.5 text-xs bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    {record.competition_category && (
+                      <div>
+                        <span className="text-slate-400 block text-[11px]">Competition Category</span>
+                        <span className="font-semibold text-slate-800">{record.competition_category}</span>
+                      </div>
+                    )}
+                    {record.prior_experience && (
+                      <div>
+                        <span className="text-slate-400 block text-[11px]">Prior Experience</span>
+                        <p className="text-slate-700 mt-0.5 leading-relaxed">{record.prior_experience}</p>
+                      </div>
+                    )}
+                    {record.queries && (
+                      <div>
+                        <span className="text-slate-400 block text-[11px]">Queries / Notes</span>
+                        <p className="text-slate-700 mt-0.5 leading-relaxed">{record.queries}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {activeSubTab === "abstracts" && (
+            <div className="space-y-4">
+              {abstracts.length === 0 ? (
+                <div className="py-12 text-center text-slate-400">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                    <Icons.Microscope className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-700">No Scientific Abstracts</h4>
+                  <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                    This delegate has not submitted any scientific abstracts yet.
+                  </p>
+                </div>
+              ) : (
+                abstracts.map((abs, idx) => (
+                  <div
+                    key={abs.id || idx}
+                    className="p-5 rounded-2xl border border-teal-200/80 bg-teal-50/30 space-y-3.5 relative"
+                  >
+                    {/* Abstract Top */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-xs font-black px-2 py-0.5 rounded bg-teal-100 text-teal-800 border border-teal-300">
+                            {abs.abstract_number}
+                          </span>
+                          {abs.submission_type && (
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                              {abs.submission_type}
+                            </span>
+                          )}
+                          {abs.presentation_category && (
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800">
+                              {abs.presentation_category}
+                            </span>
+                          )}
+                        </div>
+                        <h4 className="text-base font-bold text-slate-900 mt-2 leading-snug">
+                          {abs.title}
+                        </h4>
+                      </div>
+
+                      {onDeleteAbstract && (
+                        <button
+                          onClick={() => onDeleteAbstract(abs.id, abs.title)}
+                          className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 transition-colors"
+                          title="Delete this abstract"
+                        >
+                          <Icons.Delete className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Metadata Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 bg-white p-3.5 rounded-xl border border-slate-200/70">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Designated Presenter</span>
+                        <span className="font-semibold text-slate-800">{abs.presenter_name || record.full_name}</span>
+                      </div>
+                      {abs.supervisor_name && (
+                        <div>
+                          <span className="text-slate-400 block text-[10px] uppercase font-bold">Faculty Guide / Mentor</span>
+                          <span className="font-semibold text-slate-800">{abs.supervisor_name}</span>
+                        </div>
+                      )}
+                      {abs.co_authors && (
+                        <div className="sm:col-span-2">
+                          <span className="text-slate-400 block text-[10px] uppercase font-bold">Co-Authors</span>
+                          <span className="font-medium text-slate-700">{abs.co_authors}</span>
+                        </div>
+                      )}
+                      {abs.keywords && (
+                        <div className="sm:col-span-2">
+                          <span className="text-slate-400 block text-[10px] uppercase font-bold">Keywords</span>
+                          <span className="font-medium text-slate-700">{abs.keywords}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Abstract Text Body */}
+                    {abs.abstract_body && (
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold mb-1">Abstract Text</span>
+                        <div className="p-3 bg-white rounded-xl border border-slate-200/70 text-xs text-slate-700 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap">
+                          {abs.abstract_body}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Download Buttons */}
+                    <div className="pt-2 flex flex-wrap items-center gap-2">
+                      {abs.file_name && (
+                        <a
+                          href={`/api/admin/file?key=${encodeURIComponent(abs.r2_file_key)}&name=${encodeURIComponent(abs.file_name)}&token=${token}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-accent text-xs py-2 px-3 flex items-center gap-1.5 shadow-xs"
+                        >
+                          <Icons.Download className="w-3.5 h-3.5" />
+                          <span>Manuscript: {abs.file_name} ({formatBytes(abs.file_size)})</span>
+                        </a>
+                      )}
+
+                      {abs.presentation_file_name && (
+                        <a
+                          href={`/api/admin/file?key=${encodeURIComponent(abs.presentation_file_key)}&name=${encodeURIComponent(abs.presentation_file_name)}&token=${token}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-outline text-xs py-2 px-3 flex items-center gap-1.5 text-sky-700 hover:border-sky-300"
+                        >
+                          <Icons.Download className="w-3.5 h-3.5" />
+                          <span>Slides: {abs.presentation_file_name}</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Modal Footer */}
+        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn-outline text-xs py-2 px-4"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onEdit(record);
+            }}
+            className="btn-primary text-xs py-2 px-5 flex items-center gap-1.5"
+          >
+            <Icons.Edit className="w-3.5 h-3.5" />
+            <span>Edit Registration</span>
+          </button>
+        </div>
+
       </div>
     </div>
   );
@@ -69,8 +401,8 @@ function EditModal({ record, onSave, onClose }) {
   }
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-panel max-w-md p-6 sm:p-8">
+    <div className="modal-overlay z-50 p-4">
+      <div className="modal-panel max-w-md p-6 sm:p-8 animate-fade-in">
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
           <div>
             <h3 className="text-lg font-bold text-slate-900">Edit Registration</h3>
@@ -162,9 +494,10 @@ export function AdminTable() {
   const [data, setData]               = useState({ registrations: [], abstracts: [] });
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState("");
-  const [tab, setTab]                 = useState("registrations");
+  const [filterType, setFilterType]   = useState("all"); // "all", "with_abstracts", "no_abstracts"
   const [search, setSearch]           = useState("");
   const [batchFilter, setBatchFilter] = useState("");
+  const [viewRecord, setViewRecord]   = useState(null);
   const [editRecord, setEditRecord]   = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
@@ -182,38 +515,72 @@ export function AdminTable() {
 
   useEffect(() => { load(); }, []);
 
-  const records = tab === "registrations" ? data.registrations : data.abstracts;
+  // Match abstracts to a delegate
+  function getAbstractsForDelegate(reg) {
+    if (!reg) return [];
+    return (data.abstracts || []).filter((a) => {
+      const regMatch = a.reg_number && a.reg_number === reg.reg_number;
+      const emailMatch = a.email && reg.email && a.email.toLowerCase().trim() === reg.email.toLowerCase().trim();
+      return regMatch || emailMatch;
+    });
+  }
 
+  // Filter delegates by search, batch, and abstract status
   const filtered = useMemo(() => {
-    return records.filter((r) => {
-      const name = (r.full_name || r.presenter_name || "").toLowerCase();
+    return (data.registrations || []).filter((r) => {
+      const userAbs = getAbstractsForDelegate(r);
+      const absCount = userAbs.length;
+
+      if (filterType === "with_abstracts" && absCount === 0) return false;
+      if (filterType === "no_abstracts" && absCount > 0) return false;
+
+      const name = (r.full_name || "").toLowerCase();
       const inst = (r.institution || "").toLowerCase();
-      const q    = search.toLowerCase();
+      const q    = search.toLowerCase().trim();
+      
+      const absTitles = userAbs.map((a) => (a.title || "").toLowerCase()).join(" ");
+      const absNumbers = userAbs.map((a) => (a.abstract_number || "").toLowerCase()).join(" ");
+
       const matchSearch =
         !q ||
         name.includes(q) ||
         inst.includes(q) ||
-        (r.reg_number || r.abstract_number || "").toLowerCase().includes(q) ||
-        (r.email || "").toLowerCase().includes(q);
+        (r.reg_number || "").toLowerCase().includes(q) ||
+        (r.email || "").toLowerCase().includes(q) ||
+        (r.phone || "").toLowerCase().includes(q) ||
+        absTitles.includes(q) ||
+        absNumbers.includes(q);
+
       const matchBatch = !batchFilter || r.batch === batchFilter;
       return matchSearch && matchBatch;
     });
-  }, [records, search, batchFilter]);
+  }, [data.registrations, data.abstracts, search, batchFilter, filterType]);
 
   async function handleDelete(type, id) {
     try {
       await deleteRecord(type, id);
       setConfirmDelete(null);
-      await load();
+      if (viewRecord && type === "abstract") {
+        // If viewing delegate whose abstract was deleted, keep view open and refresh data
+        await load();
+      } else {
+        setViewRecord(null);
+        await load();
+      }
     } catch (e) {
       setError(e.message);
     }
   }
 
+  // Count delegates with abstracts
+  const delegatesWithAbstractsCount = useMemo(() => {
+    return (data.registrations || []).filter((r) => getAbstractsForDelegate(r).length > 0).length;
+  }, [data.registrations, data.abstracts]);
+
   // Calculate Batch Distribution
   const batchCounts = useMemo(() => {
     const counts = {};
-    for (const r of data.registrations) {
+    for (const r of data.registrations || []) {
       counts[r.batch] = (counts[r.batch] || 0) + 1;
     }
     return counts;
@@ -221,7 +588,7 @@ export function AdminTable() {
 
   const uniqueColleges = useMemo(() => {
     return new Set(
-      [...data.registrations, ...data.abstracts]
+      [...(data.registrations || []), ...(data.abstracts || [])]
         .map((r) => (r.institution || "").trim().toLowerCase())
         .filter(Boolean)
     ).size;
@@ -230,11 +597,11 @@ export function AdminTable() {
   return (
     <div className="flex flex-col gap-6">
 
-      {/* ── 4 Executive KPI Stat Cards (2x2 on Mobile, 4-col on Desktop) ── */}
+      {/* ── 4 Executive KPI Stat Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           label="Attendees"
-          value={data.registrations.length}
+          value={(data.registrations || []).length}
           sub="Registered Delegates"
           icon={Icons.Users}
           gradient="bg-sky-50"
@@ -242,11 +609,19 @@ export function AdminTable() {
         />
         <StatCard
           label="Abstracts"
-          value={data.abstracts.length}
+          value={(data.abstracts || []).length}
           sub="Scientific Submissions"
           icon={Icons.Microscope}
           gradient="bg-teal-50"
           textColor="text-teal-600"
+        />
+        <StatCard
+          label="With Abstracts"
+          value={delegatesWithAbstractsCount}
+          sub="Delegates Presenting"
+          icon={Icons.Badge}
+          gradient="bg-emerald-50"
+          textColor="text-emerald-600"
         />
         <StatCard
           label="Colleges"
@@ -256,18 +631,10 @@ export function AdminTable() {
           gradient="bg-amber-50"
           textColor="text-amber-600"
         />
-        <StatCard
-          label="Event Date"
-          value="17 Sep"
-          sub="Registration ends 14 Sep"
-          icon={Icons.Date}
-          gradient="bg-rose-50"
-          textColor="text-rose-600"
-        />
       </div>
 
       {/* ── Batch Distribution Progress Bar ── */}
-      {data.registrations.length > 0 && (
+      {(data.registrations || []).length > 0 && (
         <div className="card p-4 sm:p-5 bg-white border border-slate-200/80">
           <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-2.5">
             <span className="uppercase tracking-wider">Delegate Batch Representation</span>
@@ -305,69 +672,74 @@ export function AdminTable() {
         </div>
       )}
 
-      {/* ── Toolbar: Tabs, Search, Batch Filter & Exports ── */}
+      {/* ── Toolbar: Merged Filters, Search, Batch Filter & Exports ── */}
       <div className="card p-4 sm:p-5 bg-white border border-slate-200/80 flex flex-col gap-4">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
           
-          {/* Left: Tab Switcher (Segmented Control) */}
+          {/* Left: Filter Buttons */}
           <div className="flex p-1 bg-slate-100 rounded-xl w-full sm:w-auto">
             <button
-              onClick={() => setTab("registrations")}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                tab === "registrations"
+              onClick={() => setFilterType("all")}
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                filterType === "all"
                   ? "bg-white text-sky-700 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <span>Registrations</span>
+              <span>All Delegates</span>
               <span className="px-1.5 py-0.5 rounded-full bg-slate-200/70 text-[10px] text-slate-700 font-extrabold">
-                {data.registrations.length}
+                {(data.registrations || []).length}
               </span>
             </button>
             <button
-              onClick={() => setTab("abstracts")}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                tab === "abstracts"
+              onClick={() => setFilterType("with_abstracts")}
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                filterType === "with_abstracts"
                   ? "bg-white text-teal-700 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <span>Scientific Abstracts</span>
+              <span>With Abstracts</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-teal-100 text-[10px] text-teal-800 font-extrabold">
+                {delegatesWithAbstractsCount}
+              </span>
+            </button>
+            <button
+              onClick={() => setFilterType("no_abstracts")}
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                filterType === "no_abstracts"
+                  ? "bg-white text-slate-800 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span>No Abstracts</span>
               <span className="px-1.5 py-0.5 rounded-full bg-slate-200/70 text-[10px] text-slate-700 font-extrabold">
-                {data.abstracts.length}
+                {(data.registrations || []).length - delegatesWithAbstractsCount}
               </span>
             </button>
           </div>
 
-          {/* Right: Export Options */}
+          {/* Right: Export Options (With Multiline Abstract Titles in One Cell) */}
           <div className="flex items-center flex-wrap gap-2 w-full md:w-auto justify-start md:justify-end">
             <button
-              onClick={() =>
-                tab === "registrations"
-                  ? exportRegistrationsExcel(filtered)
-                  : exportAbstractsExcel(filtered)
-              }
-              className="btn-outline text-xs py-2 px-3 flex items-center gap-1.5 text-emerald-700 hover:border-emerald-300"
-              title="Export filtered records to Microsoft Excel"
+              onClick={() => exportMergedDelegatesExcel(filtered, data.abstracts)}
+              className="btn-outline text-xs py-2 px-3 flex items-center gap-1.5 text-emerald-700 hover:border-emerald-300 font-semibold"
+              title="Download Excel report with abstract counts and multiline titles in one cell"
             >
               <Icons.Excel className="w-3.5 h-3.5" />
               <span>Excel</span>
             </button>
 
             <button
-              onClick={() =>
-                tab === "registrations"
-                  ? exportRegistrationsCSV(filtered)
-                  : exportAbstractsCSV(filtered)
-              }
-              className="btn-outline text-xs py-2 px-3 flex items-center gap-1.5 text-slate-700"
-              title="Export filtered records to CSV format"
+              onClick={() => exportMergedDelegatesCSV(filtered, data.abstracts)}
+              className="btn-outline text-xs py-2 px-3 flex items-center gap-1.5 text-slate-700 font-semibold"
+              title="Download CSV report"
             >
               <Icons.File className="w-3.5 h-3.5" />
               <span>CSV</span>
             </button>
 
-            {tab === "abstracts" && (
+            {(data.abstracts || []).length > 0 && (
               <a
                 href={getAdminDownloadUrl()}
                 target="_blank"
@@ -390,14 +762,14 @@ export function AdminTable() {
           </div>
         </div>
 
-        {/* Filter Controls Row */}
+        {/* Search & Batch Filters */}
         <div className="flex flex-col sm:flex-row gap-3 pt-3 border-t border-slate-100">
           <div className="relative flex-1">
             <Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
               className="form-input pl-9 text-xs py-2.5"
-              placeholder="Search by name, college, email, or official ID…"
+              placeholder="Search by name, college, email, phone, ID, or abstract title…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -434,7 +806,7 @@ export function AdminTable() {
         </div>
       )}
 
-      {/* ── Table Container (Desktop Table + Mobile Cards) ── */}
+      {/* ── Merged Table Container ── */}
       <div className="card overflow-hidden bg-white border border-slate-200/80">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
@@ -449,207 +821,225 @@ export function AdminTable() {
           </div>
         ) : (
           <>
-            {/* ── 1. Desktop High-Density Table (Hidden on small mobile) ── */}
+            {/* Desktop Merged Table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="data-table">
                 <thead>
                   <tr>
                     <th>#</th>
                     <th>Official ID</th>
-                    <th>Delegate / Presenter</th>
+                    <th>Delegate</th>
                     <th>Medical College</th>
                     <th>Batch</th>
                     <th>Year</th>
                     <th>Contact</th>
-                    {tab === "registrations" ? <th>Activities</th> : <th>Manuscript</th>}
+                    <th>Activities</th>
+                    <th className="text-center">Abstracts</th>
                     <th>Date</th>
                     <th className="text-right pr-6">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((r, i) => (
-                    <tr key={r.id}>
-                      <td className="text-xs text-slate-400 font-mono">{i + 1}</td>
-                      <td>
-                        <span className="font-mono text-xs font-extrabold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">
-                          {r.reg_number || r.abstract_number}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-sky-500 to-teal-500 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0">
-                            {(r.full_name || r.presenter_name || "?").charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-bold text-slate-900 leading-tight">
-                              {r.full_name || r.presenter_name}
+                  {filtered.map((r, i) => {
+                    const userAbs = getAbstractsForDelegate(r);
+                    const absCount = userAbs.length;
+
+                    return (
+                      <tr key={r.id}>
+                        <td className="text-xs text-slate-400 font-mono">{i + 1}</td>
+                        <td>
+                          <span className="font-mono text-xs font-extrabold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">
+                            {r.reg_number}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-sky-500 to-teal-500 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0">
+                              {(r.full_name || "?").charAt(0).toUpperCase()}
                             </div>
-                            <div className="text-[11px] text-slate-400">{r.email}</div>
+                            <div>
+                              <div className="font-bold text-slate-900 leading-tight">
+                                {r.full_name}
+                              </div>
+                              <div className="text-[11px] text-slate-400">{r.email}</div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="text-xs text-slate-600 max-w-[150px] truncate">{r.institution}</td>
-                      <td>
-                        <span className={`px-2 py-0.5 rounded-md border text-[11px] font-bold ${BATCH_COLORS[r.batch] || "bg-slate-100"}`}>
-                          {r.batch}
-                        </span>
-                      </td>
-                      <td className="text-xs text-slate-600 whitespace-nowrap">{r.academic_year}</td>
-                      <td className="text-xs font-mono text-slate-600 whitespace-nowrap">{r.phone}</td>
-                      
-                      {tab === "registrations" ? (
+                        </td>
+                        <td className="text-xs text-slate-600 max-w-[150px] truncate">{r.institution}</td>
+                        <td>
+                          <span className={`px-2 py-0.5 rounded-md border text-[11px] font-bold ${BATCH_COLORS[r.batch] || "bg-slate-100"}`}>
+                            {r.batch}
+                          </span>
+                        </td>
+                        <td className="text-xs text-slate-600 whitespace-nowrap">{r.academic_year}</td>
+                        <td className="text-xs font-mono text-slate-600 whitespace-nowrap">{r.phone}</td>
+                        
                         <td className="text-xs text-slate-600 max-w-[160px] truncate">
                           {Array.isArray(r.activities) ? r.activities.join(", ") : r.activities || "—"}
                         </td>
-                      ) : (
-                        <td>
-                          {r.file_name ? (
-                            <a
-                              href={`/api/admin/file?key=${encodeURIComponent(r.r2_file_key)}&name=${encodeURIComponent(r.file_name)}&token=${sessionStorage.getItem("imf_admin_token") || ""}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-teal-700 font-bold hover:underline inline-flex items-center gap-1 font-mono"
-                              title="Download manuscript"
+
+                        {/* Abstracts Count Column */}
+                        <td className="text-center">
+                          {absCount > 0 ? (
+                            <button
+                              onClick={() => setViewRecord(r)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 hover:bg-teal-100 hover:border-teal-300 transition-all shadow-xs"
+                              title={`Click to view ${absCount} abstract(s)`}
                             >
-                              <Icons.File className="w-3.5 h-3.5 text-teal-600" />
-                              <span className="truncate max-w-[110px]">{r.file_name}</span>
-                            </a>
+                              <Icons.Microscope className="w-3.5 h-3.5 text-teal-600" />
+                              <span>{absCount} {absCount === 1 ? "Abstract" : "Abstracts"}</span>
+                            </button>
                           ) : (
-                            <span className="text-slate-400 text-xs">—</span>
+                            <span className="px-2 py-0.5 rounded text-[11px] font-semibold text-slate-400 bg-slate-100">
+                              0
+                            </span>
                           )}
                         </td>
-                      )}
 
-                      <td className="text-[11px] text-slate-400 whitespace-nowrap">
-                        {new Date(r.created_at).toLocaleDateString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                        })}
-                      </td>
+                        <td className="text-[11px] text-slate-400 whitespace-nowrap">
+                          {new Date(r.created_at).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                          })}
+                        </td>
 
-                      <td className="text-right pr-4">
-                        <div className="flex items-center justify-end gap-1">
-                          {tab === "registrations" && (
+                        {/* Actions Column (Eye, Edit, Delete) */}
+                        <td className="text-right pr-4">
+                          <div className="flex items-center justify-end gap-1">
+                            {/* EYE BUTTON — View Full Details */}
+                            <button
+                              onClick={() => setViewRecord(r)}
+                              className="btn-icon hover:bg-teal-50 text-teal-600 hover:text-teal-700"
+                              title="View full delegate profile & abstracts"
+                            >
+                              <Icons.Eye className="w-4 h-4" />
+                            </button>
+
+                            {/* EDIT BUTTON */}
                             <button
                               onClick={() => setEditRecord(r)}
-                              className="btn-icon hover:bg-sky-50 text-sky-600"
-                              title="Edit registration"
+                              className="btn-icon hover:bg-sky-50 text-sky-600 hover:text-sky-700"
+                              title="Edit registration details"
                             >
                               <Icons.Edit className="w-3.5 h-3.5" />
                             </button>
-                          )}
-                          <button
-                            onClick={() =>
-                              setConfirmDelete({
-                                type: tab === "registrations" ? "registration" : "abstract",
-                                id: r.id,
-                                name: r.full_name || r.title,
-                              })
-                            }
-                            className="btn-icon hover:bg-rose-50 text-rose-600"
-                            title="Delete entry"
-                          >
-                            <Icons.Delete className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+
+                            {/* DELETE BUTTON */}
+                            <button
+                              onClick={() =>
+                                setConfirmDelete({
+                                  type: "registration",
+                                  id: r.id,
+                                  name: r.full_name,
+                                })
+                              }
+                              className="btn-icon hover:bg-rose-50 text-rose-600 hover:text-rose-700"
+                              title="Delete registration"
+                            >
+                              <Icons.Delete className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
-            {/* ── 2. Smartphone Mobile Card List (Active on small mobile screens) ── */}
+            {/* Mobile Responsive Cards */}
             <div className="md:hidden divide-y divide-slate-100">
-              {filtered.map((r, i) => (
-                <div key={r.id} className="p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 to-teal-500 text-white text-xs font-black flex items-center justify-center flex-shrink-0">
-                        {(r.full_name || r.presenter_name || "?").charAt(0).toUpperCase()}
+              {filtered.map((r) => {
+                const userAbs = getAbstractsForDelegate(r);
+                const absCount = userAbs.length;
+
+                return (
+                  <div key={r.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 to-teal-500 text-white text-xs font-black flex items-center justify-center flex-shrink-0">
+                          {(r.full_name || "?").charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-slate-900 leading-tight">
+                            {r.full_name}
+                          </div>
+                          <div className="text-[11px] text-slate-400">{r.email}</div>
+                        </div>
+                      </div>
+                      <span className="font-mono text-xs font-black text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                        {r.reg_number}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-1">
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400 block">Institution</span>
+                        <span className="font-medium text-slate-800">{r.institution}</span>
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-slate-900 leading-tight">
-                          {r.full_name || r.presenter_name}
-                        </div>
-                        <div className="text-[11px] text-slate-400">{r.email}</div>
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400 block">Batch & Year</span>
+                        <span className="font-medium text-slate-800">{r.batch} • {r.academic_year}</span>
                       </div>
                     </div>
-                    <span className="font-mono text-xs font-black text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
-                      {r.reg_number || r.abstract_number}
-                    </span>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-1">
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-slate-400 block">Institution</span>
-                      <span className="font-medium text-slate-800">{r.institution}</span>
+                    {/* Abstract Count Badge */}
+                    <div className="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                      <span className="text-slate-500 font-medium">Scientific Abstracts:</span>
+                      {absCount > 0 ? (
+                        <button
+                          onClick={() => setViewRecord(r)}
+                          className="font-bold text-teal-800 bg-teal-100/80 px-2.5 py-0.5 rounded text-xs hover:bg-teal-200 flex items-center gap-1"
+                        >
+                          <Icons.Microscope className="w-3 h-3 text-teal-700" />
+                          <span>{absCount} {absCount === 1 ? "Abstract" : "Abstracts"} →</span>
+                        </button>
+                      ) : (
+                        <span className="text-slate-400 font-semibold">0 Submitted</span>
+                      )}
                     </div>
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-slate-400 block">Batch & Year</span>
-                      <span className="font-medium text-slate-800">{r.batch} • {r.academic_year}</span>
-                    </div>
-                  </div>
 
-                  {tab === "registrations" && r.activities && (
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-slate-400 block mb-1">Activities</span>
-                      <div className="text-xs text-slate-700 bg-slate-50 p-2 rounded-lg leading-relaxed">
-                        {Array.isArray(r.activities) ? r.activities.join(", ") : r.activities}
-                      </div>
-                    </div>
-                  )}
-
-                  {tab === "abstracts" && r.file_name && (
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-slate-400 block mb-1">Manuscript File</span>
+                    {/* Mobile Action Buttons */}
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
                       <a
-                        href={`/api/admin/file?key=${encodeURIComponent(r.r2_file_key)}&name=${encodeURIComponent(r.file_name)}&token=${sessionStorage.getItem("imf_admin_token") || ""}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-50 text-teal-800 font-mono text-xs font-bold border border-teal-200"
+                        href={`tel:${r.phone}`}
+                        className="text-sky-600 font-bold flex items-center gap-1 py-1 px-2 rounded-md hover:bg-sky-50"
                       >
-                        <Icons.File className="w-3.5 h-3.5 text-teal-600" />
-                        <span>{r.file_name}</span>
+                        <Icons.Phone className="w-3.5 h-3.5" />
+                        <span>{r.phone}</span>
                       </a>
-                    </div>
-                  )}
 
-                  {/* Mobile Actions Bar */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                    <a
-                      href={`tel:${r.phone}`}
-                      className="text-sky-600 font-bold flex items-center gap-1 py-1 px-2 rounded-md hover:bg-sky-50"
-                    >
-                      <Icons.Phone className="w-3.5 h-3.5" />
-                      <span>{r.phone}</span>
-                    </a>
-
-                    <div className="flex items-center gap-2">
-                      {tab === "registrations" && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setViewRecord(r)}
+                          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-100 flex items-center gap-1"
+                        >
+                          <Icons.Eye className="w-3.5 h-3.5" />
+                          <span>View</span>
+                        </button>
                         <button
                           onClick={() => setEditRecord(r)}
                           className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
                         >
                           Edit
                         </button>
-                      )}
-                      <button
-                        onClick={() =>
-                          setConfirmDelete({
-                            type: tab === "registrations" ? "registration" : "abstract",
-                            id: r.id,
-                            name: r.full_name || r.title,
-                          })
-                        }
-                        className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100"
-                      >
-                        Delete
-                      </button>
+                        <button
+                          onClick={() =>
+                            setConfirmDelete({
+                              type: "registration",
+                              id: r.id,
+                              name: r.full_name,
+                            })
+                          }
+                          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}
@@ -658,14 +1048,31 @@ export function AdminTable() {
         {!loading && filtered.length > 0 && (
           <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
             <span>
-              Showing <strong>{filtered.length}</strong> of <strong>{records.length}</strong> {tab}
+              Showing <strong>{filtered.length}</strong> of <strong>{(data.registrations || []).length}</strong> delegates
             </span>
             <span>Cloudflare D1 • Synced live</span>
           </div>
         )}
       </div>
 
-      {/* Edit Modal */}
+      {/* View Full Delegate Profile & Abstracts Modal */}
+      {viewRecord && (
+        <DelegateDetailModal
+          record={viewRecord}
+          abstracts={getAbstractsForDelegate(viewRecord)}
+          onClose={() => setViewRecord(null)}
+          onEdit={(rec) => { setViewRecord(null); setEditRecord(rec); }}
+          onDeleteAbstract={(absId, absTitle) => {
+            setConfirmDelete({
+              type: "abstract",
+              id: absId,
+              name: absTitle || "Abstract",
+            });
+          }}
+        />
+      )}
+
+      {/* Edit Registration Modal */}
       {editRecord && (
         <EditModal
           record={editRecord}
@@ -676,8 +1083,8 @@ export function AdminTable() {
 
       {/* Delete Confirmation Modal */}
       {confirmDelete && (
-        <div className="modal-overlay">
-          <div className="modal-panel max-w-sm p-6 text-center">
+        <div className="modal-overlay z-50 p-4">
+          <div className="modal-panel max-w-sm p-6 text-center animate-fade-in">
             <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
               <Icons.Delete className="w-6 h-6" />
             </div>
