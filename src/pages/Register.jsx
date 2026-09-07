@@ -60,6 +60,42 @@ const REG_STEPS = [
   { title: "Declaration", desc: "Review & Submit" },
 ];
 
+const MANAGE_SESSION_KEY = "imf_delegate_session";
+
+function getStoredDelegateSession() {
+  try {
+    const raw = sessionStorage.getItem(MANAGE_SESSION_KEY) || localStorage.getItem(MANAGE_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.registration) {
+      if (parsed.savedAt && Date.now() - parsed.savedAt > 24 * 60 * 60 * 1000) {
+        clearStoredDelegateSession();
+        return null;
+      }
+      return parsed;
+    }
+  } catch (_) {}
+  return null;
+}
+
+function saveStoredDelegateSession(data) {
+  try {
+    const payload = {
+      ...data,
+      savedAt: Date.now(),
+    };
+    sessionStorage.setItem(MANAGE_SESSION_KEY, JSON.stringify(payload));
+    localStorage.setItem(MANAGE_SESSION_KEY, JSON.stringify(payload));
+  } catch (_) {}
+}
+
+function clearStoredDelegateSession() {
+  try {
+    sessionStorage.removeItem(MANAGE_SESSION_KEY);
+    localStorage.removeItem(MANAGE_SESSION_KEY);
+  } catch (_) {}
+}
+
 export function Register({ initialMode = "register" }) {
   // Check URL query param e.g. /register?mode=manage
   const initialTab =
@@ -120,7 +156,7 @@ export function Register({ initialMode = "register" }) {
   const [lookupEmail, setLookupEmail] = useState("");
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
-  const [manageData, setManageData] = useState(null); // { registration, abstract }
+  const [manageData, setManageData] = useState(() => getStoredDelegateSession()); // { registration, abstract }
   const [manageSuccessMsg, setManageSuccessMsg] = useState("");
   const [manageSaving, setManageSaving] = useState(false);
   const [manageSubmittingAbs, setManageSubmittingAbs] = useState(false);
@@ -345,6 +381,7 @@ export function Register({ initialMode = "register" }) {
       const res = await lookupRegistration(lookupEmail.trim().toLowerCase(), otpCode.trim());
       if (res.verified && res.registration) {
         setManageData(res);
+        saveStoredDelegateSession(res);
         setOtpStep("credentials");
         setOtpCode("");
       } else {
@@ -389,6 +426,7 @@ export function Register({ initialMode = "register" }) {
         phone: manageData.registration.phone,
         registration: manageData.registration,
       });
+      saveStoredDelegateSession(manageData);
       setManageSuccessMsg("Your delegate registration details have been successfully updated.");
     } catch (ex) {
       setLookupError(ex.message || "Failed to update profile details.");
@@ -447,6 +485,7 @@ export function Register({ initialMode = "register" }) {
       // Reload updated registration and abstract
       const refreshed = await lookupRegistration(manageData.registration.regNumber, manageData.registration.phone);
       setManageData(refreshed);
+      saveStoredDelegateSession(refreshed);
       setManageAbsFile(null);
       setManageSuccessMsg(
         res.abstractNumber
@@ -1416,7 +1455,13 @@ export function Register({ initialMode = "register" }) {
                   </div>
 
                   <button
-                    onClick={() => { setManageData(null); setLookupEmail(""); setOtpStep("credentials"); setOtpCode(""); }}
+                    onClick={() => {
+                      clearStoredDelegateSession();
+                      setManageData(null);
+                      setLookupEmail("");
+                      setOtpStep("credentials");
+                      setOtpCode("");
+                    }}
                     className="btn-outline text-xs py-1.5 px-3.5 text-white border-white/20 hover:bg-white/10 self-start sm:self-center"
                   >
                     Exit / Logout
