@@ -917,7 +917,7 @@ export function AdminTable() {
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>ID</th>
+                    <th className="whitespace-nowrap">ID</th>
                     <th>Delegate</th>
                     <th>College</th>
                     <th>Batch</th>
@@ -940,8 +940,8 @@ export function AdminTable() {
                     return (
                       <tr key={r.id}>
                         <td className="text-xs text-slate-400 font-mono">{i + 1}</td>
-                        <td>
-                          <span className="font-mono text-xs font-extrabold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">
+                        <td className="whitespace-nowrap">
+                          <span className="font-mono text-xs font-extrabold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-md border border-sky-200 whitespace-nowrap inline-block">
                             {r.reg_number}
                           </span>
                         </td>
@@ -1064,7 +1064,7 @@ export function AdminTable() {
             </div>
 
             {/* Mobile Responsive Cards */}
-            <div className="md:hidden divide-y divide-slate-100">
+            <div className="md:hidden divide-y-4 divide-slate-200">
               {filtered.map((r) => {
                 const userAbs = getAbstractsForDelegate(r);
                 const absCount = userAbs.length;
