@@ -4,6 +4,7 @@ import { Icons } from "../assets/icons";
 import imigLogo from "../assets/logos/imig.jpg";
 import acpLogo from "../assets/logos/acp.jpg";
 import bsmLogo from "../assets/logos/bsm.jpg";
+import aristopharmaLogo from "../assets/logos/aristopharma.png";
 
 const ORGANIZERS = [
   {
@@ -246,6 +247,29 @@ export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* ── Sponsored By ── */}
+          <div className="mt-14 pt-8 border-t border-slate-200/80">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 text-center mb-6">
+              Sponsored by
+            </p>
+
+            <div className="flex justify-center">
+              <div className="p-6 sm:px-12 sm:py-7 rounded-2xl border border-slate-200/90 bg-white text-center shadow-xs hover:border-slate-300 hover:shadow-card transition-all flex flex-col items-center justify-center group max-w-md w-full">
+                <div className="h-16 w-full flex items-center justify-center mb-2">
+                  <img
+                    src={aristopharmaLogo}
+                    alt="Aristopharma Ltd. Logo"
+                    className="max-h-14 max-w-[85%] object-contain group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                </div>
+                <div>
+                  <div className="font-extrabold text-slate-900 text-sm tracking-tight">Aristopharma Ltd.</div>
+                </div>
+              </div>
             </div>
           </div>
 

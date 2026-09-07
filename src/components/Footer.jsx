@@ -65,11 +65,17 @@ export function Footer({ onOpenAdmin, onOpenRegister, onOpenAbstract }) {
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3">
               Organized by
             </h4>
-            <ul className="space-y-1.5 text-xs text-slate-500">
+            <ul className="space-y-1.5 text-xs text-slate-500 mb-4">
               <li className="font-semibold text-slate-700">DMC IMIG</li>
               <li className="font-semibold text-slate-700">ACP Bangladesh Chapter</li>
               <li className="font-semibold text-slate-700">Bangladesh Society of Medicine</li>
             </ul>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-2">
+              Sponsored by
+            </h4>
+            <p className="text-xs font-semibold text-slate-700">
+              Aristopharma Ltd.
+            </p>
           </div>
         </div>
 
