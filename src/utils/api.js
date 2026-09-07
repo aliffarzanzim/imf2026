@@ -70,10 +70,16 @@ export async function lookupRegistration(emailOrReg, otpCode = null) {
   });
 }
 
-export async function updateRegistrationData(data) {
+export async function updateRegistrationData(data, sessionToken = null) {
+  const headers = {};
+  const token = sessionToken || (typeof sessionStorage !== "undefined" && sessionStorage.getItem("imf_delegate_session_token")) || null;
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
   return request("/api/update-registration", {
     method: "POST",
-    body: JSON.stringify(data),
+    headers,
+    body: JSON.stringify({ ...data, sessionToken: token }),
   });
 }
 

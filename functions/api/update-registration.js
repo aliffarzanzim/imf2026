@@ -1,5 +1,6 @@
 // functions/api/update-registration.js
 import { sendEmail, buildUpdateConfirmationEmail } from "./_email.js";
+import { verifyDelegateToken } from "./_delegateAuth.js";
 
 function normalizePhone(phone) {
   if (!phone) return "";
@@ -26,7 +27,7 @@ export async function onRequestPost(context) {
     }
 
     const body = await request.json();
-    const { regNumber, email, phone, registration: regUpdates, abstracts: absList, abstract: absUpdates } = body;
+    const { regNumber, email, phone, sessionToken, registration: regUpdates, abstracts: absList, abstract: absUpdates } = body;
 
     const identifierReg = (regNumber && String(regNumber).trim().toUpperCase()) || "";
     const identifierEmail = (email && String(email).trim().toLowerCase()) || "";
@@ -35,6 +36,25 @@ export async function onRequestPost(context) {
       return new Response(
         JSON.stringify({ error: "Registration Number or Email is required for update." }),
         { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 🛡️ Security: Verify cryptographic session token issued upon OTP verification
+    const authHeader = request.headers.get("Authorization");
+    let tokenToVerify = sessionToken;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      tokenToVerify = authHeader.slice(7).trim();
+    }
+
+    const sessionSecret = env.EMAIL_SECRET || env.ADMIN_PASSWORD || "imf2026_delegate_session_secret";
+    const verifiedSession = await verifyDelegateToken(tokenToVerify, sessionSecret);
+
+    if (!verifiedSession) {
+      return new Response(
+        JSON.stringify({
+          error: "Unauthorized: Missing, invalid, or expired session token. Please verify with your email again to update your registration.",
+        }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -54,6 +74,17 @@ export async function onRequestPost(context) {
       return new Response(
         JSON.stringify({ error: "Registration record not found." }),
         { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // 🛡️ Security: Enforce that the token belongs strictly to this record
+    if (
+      verifiedSession.regNumber.toUpperCase() !== reg.reg_number.toUpperCase() ||
+      verifiedSession.email.toLowerCase() !== reg.email.trim().toLowerCase()
+    ) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Session token does not match this registration record." }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
       );
     }
 

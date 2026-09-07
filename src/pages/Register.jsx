@@ -110,6 +110,10 @@ function saveStoredDelegateSession(data) {
     };
     sessionStorage.setItem(MANAGE_SESSION_KEY, JSON.stringify(payload));
     localStorage.setItem(MANAGE_SESSION_KEY, JSON.stringify(payload));
+    if (data && data.sessionToken) {
+      sessionStorage.setItem("imf_delegate_session_token", data.sessionToken);
+      localStorage.setItem("imf_delegate_session_token", data.sessionToken);
+    }
   } catch (_) {}
 }
 
@@ -117,6 +121,8 @@ function clearStoredDelegateSession() {
   try {
     sessionStorage.removeItem(MANAGE_SESSION_KEY);
     localStorage.removeItem(MANAGE_SESSION_KEY);
+    sessionStorage.removeItem("imf_delegate_session_token");
+    localStorage.removeItem("imf_delegate_session_token");
   } catch (_) {}
 }
 

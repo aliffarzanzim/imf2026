@@ -1,5 +1,6 @@
 // functions/api/lookup-registration.js
 import { sendEmail, buildOtpEmail } from "./_email.js";
+import { createDelegateToken } from "./_delegateAuth.js";
 
 function maskEmail(email) {
   if (!email || !email.includes("@")) return "registered email";
@@ -8,6 +9,13 @@ function maskEmail(email) {
     return `${local[0]}***@${domain}`;
   }
   return `${local.slice(0, 2)}***${local.slice(-1)}@${domain}`;
+}
+
+// Generate cryptographically secure 6-digit numeric OTP
+function generateSecureOtp() {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return String(100000 + (buf[0] % 900000));
 }
 
 export async function onRequestPost(context) {
@@ -21,7 +29,7 @@ export async function onRequestPost(context) {
       );
     }
 
-    // Ensure otps table exists
+    // Ensure otps table exists with attempts column
     try {
       await env.DB.prepare(`
         CREATE TABLE IF NOT EXISTS otps (
@@ -29,10 +37,14 @@ export async function onRequestPost(context) {
           reg_number  TEXT NOT NULL,
           email       TEXT NOT NULL,
           code        TEXT NOT NULL,
+          attempts    INTEGER DEFAULT 0,
           expires_at  INTEGER NOT NULL,
           created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `).run();
+      try {
+        await env.DB.prepare("ALTER TABLE otps ADD COLUMN attempts INTEGER DEFAULT 0").run();
+      } catch (_) {}
     } catch (_) {}
 
     const body = await request.json();
@@ -75,8 +87,28 @@ export async function onRequestPost(context) {
 
     // ── STAGE 1: Send OTP if otpCode is not yet provided ──────────
     if (!otpCode || !String(otpCode).trim()) {
-      // Generate 6-digit random code
-      const code = String(Math.floor(100000 + Math.random() * 900000));
+      // Cooldown check: prevent requesting an OTP more often than once every 60s
+      const recentOtp = await env.DB.prepare(
+        "SELECT created_at FROM otps WHERE LOWER(TRIM(email)) = ? ORDER BY id DESC LIMIT 1"
+      ).bind(cleanEmail).first();
+
+      if (recentOtp && recentOtp.created_at) {
+        const lastSent = new Date(recentOtp.created_at + (recentOtp.created_at.endsWith("Z") ? "" : "Z")).getTime();
+        const diff = Date.now() - lastSent;
+        if (diff < 60 * 1000) {
+          const waitSecs = Math.ceil((60 * 1000 - diff) / 1000);
+          return new Response(
+            JSON.stringify({
+              error: `Please wait ${waitSecs} second${waitSecs === 1 ? "" : "s"} before requesting a new verification code.`,
+              cooldown: waitSecs,
+            }),
+            { status: 429, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // Generate cryptographically secure 6-digit code
+      const code = generateSecureOtp();
       const expiresAt = Date.now() + (10 * 60 * 1000); // 10 minutes
 
       // Delete any previous unused OTPs for this email
@@ -84,7 +116,7 @@ export async function onRequestPost(context) {
 
       // Store new OTP
       await env.DB.prepare(
-        "INSERT INTO otps (reg_number, email, code, expires_at) VALUES (?, ?, ?, ?)"
+        "INSERT INTO otps (reg_number, email, code, attempts, expires_at) VALUES (?, ?, ?, 0, ?)"
       ).bind(reg.reg_number, cleanEmail, code, expiresAt).run();
 
       // Dispatch OTP email
@@ -109,14 +141,6 @@ export async function onRequestPost(context) {
         );
       }
 
-      // Delete any previous unused OTPs for this email
-      await env.DB.prepare("DELETE FROM otps WHERE LOWER(TRIM(email)) = ?").bind(cleanEmail).run();
-
-      // Store new OTP
-      await env.DB.prepare(
-        "INSERT INTO otps (reg_number, email, code, expires_at) VALUES (?, ?, ?, ?)"
-      ).bind(reg.reg_number, cleanEmail, code, expiresAt).run();
-
       return new Response(
         JSON.stringify({
           success: true,
@@ -131,18 +155,50 @@ export async function onRequestPost(context) {
     // ── STAGE 2: Verify OTP ───────────────────────────────────────
     const cleanOtp = String(otpCode).trim();
     const otpRow = await env.DB.prepare(
-      "SELECT * FROM otps WHERE LOWER(TRIM(email)) = ? AND code = ? AND expires_at > ? ORDER BY id DESC LIMIT 1"
-    ).bind(cleanEmail, cleanOtp, Date.now()).first();
+      "SELECT * FROM otps WHERE LOWER(TRIM(email)) = ? AND expires_at > ? ORDER BY id DESC LIMIT 1"
+    ).bind(cleanEmail, Date.now()).first();
 
     if (!otpRow) {
       return new Response(
-        JSON.stringify({ error: "Invalid or expired verification code. Please check the code in your email or request a new one." }),
+        JSON.stringify({ error: "Verification code expired or not requested. Please request a new one." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Brute force lockout check: max 5 attempts
+    if ((otpRow.attempts || 0) >= 5) {
+      await env.DB.prepare("DELETE FROM otps WHERE LOWER(TRIM(email)) = ?").bind(cleanEmail).run();
+      return new Response(
+        JSON.stringify({ error: "Too many incorrect attempts. For your security, this verification code was revoked. Please request a new one." }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check code match
+    if (otpRow.code !== cleanOtp) {
+      await env.DB.prepare("UPDATE otps SET attempts = attempts + 1 WHERE id = ?").bind(otpRow.id).run();
+      const attemptsLeft = 4 - (otpRow.attempts || 0);
+      return new Response(
+        JSON.stringify({
+          error: attemptsLeft > 0
+            ? `Invalid verification code. ${attemptsLeft} attempt${attemptsLeft === 1 ? "" : "s"} remaining.`
+            : "Too many incorrect attempts. This code has been revoked. Please request a new one.",
+        }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
     // Consume OTP so it cannot be reused
     await env.DB.prepare("DELETE FROM otps WHERE LOWER(TRIM(email)) = ?").bind(cleanEmail).run();
+
+    // Generate signed, tamper-proof session token for delegate updates (valid for 2 hours)
+    const sessionToken = await createDelegateToken(
+      {
+        regNumber: reg.reg_number,
+        email: cleanEmail,
+      },
+      env.EMAIL_SECRET || env.ADMIN_PASSWORD || "imf2026_delegate_session_secret"
+    );
 
     // Parse activities JSON safely
     let parsedActivities = [];
@@ -192,6 +248,7 @@ export async function onRequestPost(context) {
       JSON.stringify({
         success: true,
         verified: true,
+        sessionToken, // 🛡️ Cryptographically signed authorization token
         registration: {
           id: reg.id,
           regNumber: reg.reg_number,

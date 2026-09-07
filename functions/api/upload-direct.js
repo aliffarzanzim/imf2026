@@ -60,11 +60,11 @@ export async function onRequestPut(context) {
       );
     }
 
-    // Size limit check via header if present (100 MB max)
+    // Size limit check via header if present (30 MB max)
     const contentLength = request.headers.get("content-length");
-    if (contentLength && parseInt(contentLength, 10) > 100 * 1024 * 1024) {
+    if (contentLength && parseInt(contentLength, 10) > 30 * 1024 * 1024) {
       return new Response(
-        JSON.stringify({ error: "File exceeds the 100 MB size limit." }),
+        JSON.stringify({ error: "File exceeds the maximum allowed 30 MB limit." }),
         { status: 413, headers: { "Content-Type": "application/json" } }
       );
     }
