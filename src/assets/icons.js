@@ -97,6 +97,7 @@ export const Icons = {
   HeartPulse:    HeartPulse,
 
   // People
+  Users:         Users,
   Presenter:     Users,
   Supervisor:    Star,
 
