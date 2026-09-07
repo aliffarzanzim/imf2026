@@ -59,7 +59,8 @@ export async function verifyToken(token, secret) {
 }
 
 export async function checkAdminAuth(request, env) {
-  const secret = env.ADMIN_PASSWORD || "imf2026_admin_secret_key";
+  const secret = env.ADMIN_PASSWORD;
+  if (!secret) return false;
   const authHeader = request.headers.get("Authorization");
   let token = null;
 

@@ -1,13 +1,26 @@
 // src/utils/export.js — Excel & CSV export utilities (SheetJS)
 import * as XLSX from "xlsx";
 
+function sanitizeCell(val) {
+  if (typeof val === "string" && /^[=+@\-\t\r]/.test(val)) {
+    return "'" + val;
+  }
+  return val;
+}
+
 function flattenRecord(rec) {
-  return {
+  const flat = {
     ...rec,
     activities: Array.isArray(rec.activities)
       ? rec.activities.join(", ")
       : rec.activities,
   };
+
+  const sanitized = {};
+  for (const [key, value] of Object.entries(flat)) {
+    sanitized[key] = sanitizeCell(value);
+  }
+  return sanitized;
 }
 
 export function exportToExcel(records, fileName = "IMF_2026_Data.xlsx") {
