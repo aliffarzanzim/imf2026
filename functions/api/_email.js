@@ -38,6 +38,14 @@ export async function sendEmail({ env, to, subject, html, text, from, replyTo })
     const trimmed = env.GOOGLE_SCRIPT_URL_3.trim();
     if (trimmed && !scriptUrls.includes(trimmed)) scriptUrls.push(trimmed);
   }
+  if (env?.GOOGLE_SCRIPT_URL_4) {
+    const trimmed = env.GOOGLE_SCRIPT_URL_4.trim();
+    if (trimmed && !scriptUrls.includes(trimmed)) scriptUrls.push(trimmed);
+  }
+  if (env?.GOOGLE_SCRIPT_URL_5) {
+    const trimmed = env.GOOGLE_SCRIPT_URL_5.trim();
+    if (trimmed && !scriptUrls.includes(trimmed)) scriptUrls.push(trimmed);
+  }
   if (env?.GOOGLE_SCRIPT_FALLBACKS) {
     env.GOOGLE_SCRIPT_FALLBACKS.split(",").forEach((u) => {
       const trimmed = u.trim();
