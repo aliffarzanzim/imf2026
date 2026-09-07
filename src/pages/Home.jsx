@@ -18,17 +18,23 @@ export function Home() {
     navigate("/admin");
   }
 
+  function handleManage() {
+    navigate("/manage");
+  }
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8fafc]">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] w-full">
       <Header
         onOpenAdmin={handleAdmin}
         onHome={() => navigate("/")}
         onOpenRegister={handleRegister}
+        onOpenManage={handleManage}
       />
-      <main className="flex-1">
+      <main className="flex-1 w-full">
         <Hero
           onOpenRegister={handleRegister}
           onOpenAbstract={handleAbstract}
+          onOpenManage={handleManage}
         />
       </main>
       <Footer

@@ -76,27 +76,19 @@ export function Footer({ onOpenAdmin, onOpenRegister, onOpenAbstract }) {
         {/* Bottom Credits Strip — Fully Responsive on Smartphone & Desktop */}
         <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
           
-          {/* Maintained By: Uniform muted text color matching the footer */}
-          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-1.5 gap-y-1 text-slate-400 text-center sm:text-left leading-relaxed">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70 inline-block flex-shrink-0 mr-0.5" />
+          {/* Maintained By: Completely uniform muted text and normal weight */}
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-1.5 gap-y-1 text-slate-400 text-center sm:text-left leading-relaxed font-normal">
             <span>Maintained by</span>
-            <span className="whitespace-nowrap font-medium">Alif Farzan Zim (DMC K-79)</span>
+            <span className="whitespace-nowrap font-normal">Alif Farzan Zim (DMC K-79)</span>
             <span>&amp;</span>
-            <span className="whitespace-nowrap font-medium">Aiman Talukder (DMC K-79)</span>
+            <span className="whitespace-nowrap font-normal">Aiman Talukder (DMC K-79)</span>
           </div>
 
 
 
-          {/* Copyright & Discreet Admin Access */}
-          <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-2 sm:gap-4 text-slate-400 text-center">
+          {/* Copyright */}
+          <div className="text-slate-400 text-center sm:text-right">
             <span>© 2026 Internal Medicine Festival. All rights reserved.</span>
-            <span className="hidden sm:inline text-slate-300">•</span>
-            <button
-              onClick={onOpenAdmin}
-              className="text-slate-500 hover:text-slate-800 text-xs underline underline-offset-2 transition-colors whitespace-nowrap"
-            >
-              Admin Portal
-            </button>
           </div>
         </div>
 

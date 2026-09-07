@@ -61,15 +61,6 @@ export async function onRequestPost(context) {
     const { password } = body;
     const expectedPassword = env.ADMIN_PASSWORD;
 
-    if (!expectedPassword) {
-      return new Response(
-        JSON.stringify({
-          error: "ADMIN_PASSWORD secret is not configured in Cloudflare environment.",
-        }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
     const isValid = await timingSafeCheck(password, expectedPassword);
 
     if (!isValid) {

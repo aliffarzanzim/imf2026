@@ -29,9 +29,28 @@ async function request(path, options = {}) {
   return res.json();
 }
 
-// ── Registration ──────────────────────────────────────────────
+// ── Registration & Self-Service Portal ─────────────────────────
 export async function submitRegistration(data) {
   return request("/api/register", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function lookupRegistration(emailOrReg, otpCode = null) {
+  const isEmail = String(emailOrReg).includes("@");
+  return request("/api/lookup-registration", {
+    method: "POST",
+    body: JSON.stringify({
+      email: isEmail ? emailOrReg : undefined,
+      regNumber: !isEmail ? emailOrReg : undefined,
+      otpCode,
+    }),
+  });
+}
+
+export async function updateRegistrationData(data) {
+  return request("/api/update-registration", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 // ── Abstract Upload ───────────────────────────────────────────

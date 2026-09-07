@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS registrations (
 CREATE TABLE IF NOT EXISTS abstracts (
   id                    INTEGER PRIMARY KEY AUTOINCREMENT,
   abstract_number       TEXT    UNIQUE NOT NULL,
+  reg_number            TEXT,   -- Linked registration number e.g. 'IMF-REG-0001'
   full_name             TEXT    NOT NULL,
   institution           TEXT    NOT NULL,
   batch                 TEXT    NOT NULL,
@@ -48,7 +49,21 @@ CREATE TABLE IF NOT EXISTS abstracts (
 );
 
 -- Indexes for common query patterns
-CREATE INDEX IF NOT EXISTS idx_reg_email   ON registrations(email);
-CREATE INDEX IF NOT EXISTS idx_reg_batch   ON registrations(batch);
-CREATE INDEX IF NOT EXISTS idx_abs_email   ON abstracts(email);
-CREATE INDEX IF NOT EXISTS idx_abs_batch   ON abstracts(batch);
+CREATE INDEX IF NOT EXISTS idx_reg_email      ON registrations(email);
+CREATE INDEX IF NOT EXISTS idx_reg_phone      ON registrations(phone);
+CREATE INDEX IF NOT EXISTS idx_reg_batch      ON registrations(batch);
+CREATE INDEX IF NOT EXISTS idx_abs_reg_number ON abstracts(reg_number);
+CREATE INDEX IF NOT EXISTS idx_abs_email      ON abstracts(email);
+CREATE INDEX IF NOT EXISTS idx_abs_phone      ON abstracts(phone);
+CREATE INDEX IF NOT EXISTS idx_abs_batch      ON abstracts(batch);
+
+-- OTPs Table for Self-Service Portal Access
+CREATE TABLE IF NOT EXISTS otps (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  reg_number  TEXT NOT NULL,
+  email       TEXT NOT NULL,
+  code        TEXT NOT NULL,
+  expires_at  INTEGER NOT NULL,
+  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_otps_reg ON otps(reg_number);

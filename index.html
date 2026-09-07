@@ -10,14 +10,20 @@
     <meta property="og:description" content="Inspiring the Future of Internal Medicine — 17 September 2026. Free registration for all medical students." />
     <meta property="og:type" content="website" />
     <title>Internal Medicine Festival 2026 (IMF 2026) — DMC IMIG × ACP Bangladesh × BSM</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+    <!-- Preload Critical Fonts for zero layout shift / zero font flicker -->
+    <link rel="preload" href="/node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/node_modules/@fontsource/inter/files/inter-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/node_modules/@fontsource/inter/files/inter-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/node_modules/@fontsource/inter/files/inter-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/node_modules/@fontsource/inter/files/inter-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin />
+
+    <!-- Render-blocking CSS to guarantee zero FOUC / styling flicker on initial frame -->
+    <link rel="stylesheet" href="/src/styles/globals.css" />
+    <link rel="stylesheet" href="/src/styles/tailwind.css" />
   </head>
   <body style="background-color: #f8fafc; margin: 0;">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
-

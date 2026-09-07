@@ -23,11 +23,15 @@ export function App() {
   }, []);
 
   if (route === "register") {
-    return <Register />;
+    return <Register initialMode="register" />;
+  }
+
+  if (route === "manage") {
+    return <Register initialMode="manage" />;
   }
 
   if (route === "abstract" || route === "submit-abstract") {
-    return <SubmitAbstract />;
+    return <Register initialMode="abstract" />;
   }
 
   if (route === "admin") {

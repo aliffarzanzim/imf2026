@@ -59,7 +59,7 @@ function getInitialCountdown() {
   };
 }
 
-export function Hero({ onOpenRegister, onOpenAbstract }) {
+export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
   // Synchronous countdown to eliminate initial render flicker / layout shift
   const [timeLeft, setTimeLeft] = useState(getInitialCountdown);
 
@@ -71,104 +71,107 @@ export function Hero({ onOpenRegister, onOpenAbstract }) {
   }, []);
 
   return (
-    <section className="relative pt-24 pb-8 sm:pt-28 sm:pb-10 overflow-hidden">
+    <>
+      {/* ── Hero Section (Full viewport height on initial landing) ── */}
+      <section className="relative w-full min-h-screen flex flex-col justify-between items-center pt-20 pb-8 sm:pt-24 sm:pb-10 overflow-hidden">
 
+        {/* Subtle ambient lighting */}
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-tr from-sky-400/15 to-teal-300/15 rounded-full blur-3xl pointer-events-none -z-10" />
 
-      {/* Background ambient lighting */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-tr from-sky-400/15 to-teal-300/15 rounded-full blur-3xl pointer-events-none -z-10" />
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center my-auto">
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center">
-
-        {/* Festival Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-sky-200 bg-sky-50 shadow-xs mb-4">
-          <span className="w-2 h-2 rounded-full bg-sky-600" />
-          <span className="text-xs font-black tracking-wider uppercase text-sky-900">
-            Internal Medicine Festival 2026
-          </span>
-        </div>
-
-        {/* Grand Festival Name as Main Heading */}
-        <h1 className="max-w-4xl text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-slate-900 leading-[1.08]">
-          Internal Medicine <br className="hidden sm:inline" />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-600 via-teal-600 to-emerald-600">
-            Festival 2026
-          </span>
-        </h1>
-
-        {/* Theme Slogan */}
-        <p className="text-lg sm:text-2xl font-bold text-slate-800 mt-4 tracking-tight">
-          Inspiring the Future of Internal Medicine
-        </p>
-
-        {/* Subtitle & Organizers */}
-        <p className="max-w-2xl mt-3 text-base sm:text-lg text-slate-600 leading-relaxed font-normal">
-          Bangladesh's premier national gathering of future diagnosticians,
-          internists, and clinical researchers for a transformative day of academic excellence.
-        </p>
-
-        <p className="text-xs font-semibold text-slate-500 mt-2">
-          Organized by DMC IMIG &nbsp;•&nbsp; ACP Bangladesh Chapter &nbsp;•&nbsp; Bangladesh Society of Medicine (BSM)
-        </p>
-
-        {/* Key Information Chips */}
-        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-8">
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 shadow-xs text-xs font-semibold text-slate-700">
-            <Icons.Date className="w-4 h-4 text-sky-600" />
-            <span>17 September 2026</span>
-          </div>
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 shadow-xs text-xs font-semibold text-slate-700">
-            <Icons.Degree className="w-4 h-4 text-teal-600" />
-            <span>1st Year to Final Year</span>
-          </div>
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 shadow-xs text-xs font-bold text-emerald-700">
-            <Icons.Check className="w-4 h-4 text-emerald-600" />
-            <span>100% Free Registration</span>
-          </div>
-        </div>
-
-        {/* Primary CTA Buttons with High-Contrast Solid Non-Blending Styles */}
-        <div className="flex flex-col sm:flex-row gap-4 mt-9 w-full max-w-md sm:max-w-none sm:w-auto">
-          {/* Register Button: Vibrant Cerulean / Sky Solid */}
-          <button
-            id="open-register-btn"
-            onClick={onOpenRegister}
-            className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-bold text-white rounded-xl shadow-md bg-sky-600 hover:bg-sky-700 active:bg-sky-800 transition-colors"
-          >
-            <span>Register for Festival</span>
-            <Icons.Back className="w-4 h-4 rotate-180" />
-          </button>
-
-          {/* Submit Abstract Button: Solid Deep Teal (High Contrast, Never Blends with Background) */}
-          <button
-            id="open-abstract-btn"
-            onClick={onOpenAbstract}
-            className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-bold text-white rounded-xl shadow-md bg-teal-700 hover:bg-teal-800 active:bg-teal-900 border border-teal-800 transition-colors"
-          >
-            <Icons.Upload className="w-5 h-5 text-teal-100" />
-            <span>Submit Abstract</span>
-          </button>
-        </div>
-
-        {/* Deadline Ribbon */}
-        <div className="mt-5 flex items-center justify-center gap-2 text-xs text-slate-500">
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-          <span>Registration & Abstract Deadline:</span>
-          <strong className="text-rose-600 font-bold">14 September 2026</strong>
-          {timeLeft.days > 0 && (
-            <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 text-[11px] font-semibold border border-rose-200/60">
-              {timeLeft.days}d {timeLeft.hours}h left
+          {/* Grand Festival Name as Main Heading */}
+          <h1 className="max-w-4xl text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-slate-900 leading-[1.08]">
+            Internal Medicine <br className="hidden sm:inline" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-600 via-teal-600 to-emerald-600">
+              Festival 2026
             </span>
-          )}
-        </div>
+          </h1>
 
-        {/* ── Featured Activities Section ── */}
-        <div className="mt-20 w-full max-w-6xl">
-          <div className="text-center mb-10">
+          {/* Theme Slogan */}
+          <p className="text-lg sm:text-2xl font-bold text-slate-800 mt-4 tracking-tight">
+            Inspiring the Future of Internal Medicine
+          </p>
+
+          {/* Organizers */}
+          <p className="text-xs sm:text-sm text-slate-500 mt-2.5 font-normal">
+            Organized by <strong className="font-semibold text-slate-700">DMC IMIG</strong> &nbsp;•&nbsp; <strong className="font-semibold text-slate-700">ACP Bangladesh Chapter</strong> &nbsp;•&nbsp; <strong className="font-semibold text-slate-700">Bangladesh Society of Medicine (BSM)</strong>
+          </p>
+
+          {/* Key Information Chips */}
+          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mt-7 max-w-3xl">
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 shadow-xs text-xs font-medium text-slate-700">
+              <Icons.Date className="w-4 h-4 text-sky-600 flex-shrink-0" />
+              <span>Event Date: <strong className="font-bold text-slate-900">17 September 2026</strong></span>
+            </div>
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 shadow-xs text-xs font-medium text-slate-700">
+              <Icons.Degree className="w-4 h-4 text-teal-600 flex-shrink-0" />
+              <span>Eligibility: <strong className="font-bold text-slate-900">1st Year to Final-Year Medical Students</strong></span>
+            </div>
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 shadow-xs text-xs font-bold text-emerald-700">
+              <Icons.Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>Free Registration</span>
+            </div>
+          </div>
+
+          {/* Primary CTA Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 mt-8 w-full max-w-md sm:max-w-none sm:w-auto">
+            {/* Register Button */}
+            <button
+              id="open-register-btn"
+              onClick={onOpenRegister}
+              className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-bold text-white rounded-xl shadow-md bg-sky-600 hover:bg-sky-700 active:bg-sky-800 transition-colors"
+            >
+              <span>Register for Festival</span>
+              <Icons.Back className="w-4 h-4 rotate-180" />
+            </button>
+
+            {/* Manage / Lookup Registration Button */}
+            <button
+              id="open-manage-btn"
+              onClick={onOpenManage || onOpenAbstract}
+              className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-bold text-white rounded-xl shadow-md bg-teal-700 hover:bg-teal-800 active:bg-teal-900 border border-teal-800 transition-colors"
+            >
+              <Icons.Edit className="w-5 h-5 text-teal-100" />
+              <span>Already Registered?</span>
+            </button>
+          </div>
+
+          {/* Deadline Ribbon */}
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-slate-500 text-center">
+            <div className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500 flex-shrink-0" />
+              <span>Registration &amp; Abstract Deadline:</span>
+              <strong className="text-rose-600 font-bold whitespace-nowrap">14 September 2026</strong>
+            </div>
+            {timeLeft.days > 0 && (
+              <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 text-[11px] font-semibold border border-rose-200/60 whitespace-nowrap">
+                {timeLeft.days}d {timeLeft.hours}h left
+              </span>
+            )}
+          </div>
+
+          {/* Scroll Cue to Activities */}
+          <a
+            href="#activities"
+            className="mt-8 sm:mt-10 inline-flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors group cursor-pointer"
+          >
+            <span className="text-[11px] font-medium tracking-wide">Explore Festival Program</span>
+            <Icons.Back className="w-3.5 h-3.5 -rotate-90 text-slate-400 group-hover:translate-y-0.5 transition-transform" />
+          </a>
+
+        </div>
+      </section>
+
+      {/* ── Featured Activities Section (Clean, dedicated section) ── */}
+      <section id="activities" className="w-full scroll-mt-16 border-t border-slate-200/70 bg-white/60 backdrop-blur-xs py-16 sm:py-20">
+        <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10 sm:mb-12">
             <span className="text-xs font-extrabold uppercase tracking-widest text-teal-600">
               Festival Program
             </span>
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
-              Featured Segments & Competitions
+              Featured Segments &amp; Competitions
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-lg mx-auto">
               Participate in inter-medical competitions, CME updates, and scientific poster sessions.
@@ -181,12 +184,12 @@ export function Hero({ onOpenRegister, onOpenAbstract }) {
               return (
                 <div
                   key={i}
-                  className="card p-5 hover:border-slate-300 transition-colors bg-white"
+                  className="group relative p-6 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md hover:border-sky-300 hover:-translate-y-0.5 transition-all duration-200"
                 >
-                  <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${act.color} flex items-center justify-center mb-4`}>
+                  <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${act.color} flex items-center justify-center mb-4 shadow-2xs group-hover:scale-105 transition-transform`}>
                     <Icon className="w-5 h-5" />
                   </div>
-                  <h3 className="text-base font-bold text-slate-900">
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-sky-700 transition-colors">
                     {act.title}
                   </h3>
                   <p className="text-xs text-slate-600 mt-1.5 leading-relaxed font-normal">
@@ -196,29 +199,29 @@ export function Hero({ onOpenRegister, onOpenAbstract }) {
               );
             })}
           </div>
-        </div>
 
-        {/* ── Institutional Endorsements ── */}
-        <div className="mt-12 pt-6 border-t border-slate-200/80 w-full max-w-4xl">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-5">
-            Under the Distinguished Auspices of
-          </p>
+          {/* ── Institutional Endorsements ── */}
+          <div className="mt-14 pt-8 border-t border-slate-200/80">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 text-center mb-6">
+              Under the Distinguished Auspices of
+            </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {ORGANIZERS.map((org, i) => (
-              <div
-                key={i}
-                className="p-4 rounded-xl border border-slate-200/70 bg-white/70 backdrop-blur-sm text-center shadow-xs"
-              >
-                <div className="font-bold text-slate-800 text-sm">{org.name}</div>
-                <div className="text-[11px] text-slate-500 mt-0.5">{org.role}</div>
-              </div>
-            ))}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {ORGANIZERS.map((org, i) => (
+                <div
+                  key={i}
+                  className="p-5 rounded-2xl border border-slate-200/80 bg-white text-center shadow-xs hover:border-slate-300 transition-colors"
+                >
+                  <div className="font-extrabold text-slate-900 text-sm">{org.name}</div>
+                  <div className="text-xs text-slate-500 font-medium mt-1">{org.role}</div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
 
-      </div>
-    </section>
+        </div>
+      </section>
+    </>
   );
 }
 

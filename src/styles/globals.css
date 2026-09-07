@@ -3,6 +3,55 @@
    Clean, modern, high-contrast healthcare conference theme
    ============================================================ */
 
+/* ── Local Inter Typography with font-display: block (Zero FOUT / Zero Shift) ── */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../../node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('../../node_modules/@fontsource/inter/files/inter-latin-500-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url('../../node_modules/@fontsource/inter/files/inter-latin-600-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('../../node_modules/@fontsource/inter/files/inter-latin-700-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 800;
+  font-display: block;
+  src: url('../../node_modules/@fontsource/inter/files/inter-latin-800-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url('../../node_modules/@fontsource/inter/files/inter-latin-900-normal.woff2') format('woff2');
+}
+
 :root {
 
   /* ── Modern Medical Brand Palette ── */
@@ -60,8 +109,20 @@
   box-sizing: border-box;
 }
 
+/* Hide Microsoft Edge / IE default password reveal & clear eye icons */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+
 html {
   scroll-behavior: smooth;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 body {
@@ -69,13 +130,21 @@ body {
   color: var(--color-text-body);
   background-color: #f8fafc;
   background-image: 
-    radial-gradient(at 15% 15%, rgba(2, 132, 199, 0.06) 0px, transparent 50%),
-    radial-gradient(at 85% 10%, rgba(13, 148, 136, 0.07) 0px, transparent 50%),
-    radial-gradient(at 50% 85%, rgba(99, 102, 241, 0.04) 0px, transparent 60%);
+    radial-gradient(at 15% 15%, rgba(2, 132, 199, 0.05) 0px, transparent 50%),
+    radial-gradient(at 85% 10%, rgba(13, 148, 136, 0.05) 0px, transparent 50%);
   background-attachment: fixed;
   min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Modern Custom Scrollbar ── */
