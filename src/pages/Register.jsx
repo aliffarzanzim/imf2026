@@ -636,11 +636,17 @@ export function Register({ initialMode = "register" }) {
 
       const res = await submitRegistration(payload);
       const absCount = processedAbstracts.length;
+      const absNumbersList = res.abstractNumbers || (res.abstractNumber ? [res.abstractNumber] : []);
       setSuccessInfo({
         regNumber: res.regNumber,
-        abstractNumber: res.abstractNumber || (res.abstractNumbers ? res.abstractNumbers.join(", ") : null),
+        abstractNumber: res.abstractNumber || (absNumbersList.length > 0 ? absNumbersList.join(", ") : null),
+        abstractNumbers: absNumbersList,
         phone: form.phone,
         email: form.email,
+        fullName: form.fullName,
+        institution: form.institution,
+        batch: form.batch,
+        academicYear: form.academicYear,
         title: form.submitAbstract ? "Registration & Abstract Received!" : "Registration Confirmed!",
         subtitle: form.submitAbstract
           ? (absCount > 1
@@ -1070,15 +1076,23 @@ export function Register({ initialMode = "register" }) {
   if (successInfo) {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex flex-col">
-        <Header
-          onHome={() => navigate("/")}
-          onOpenAdmin={() => navigate("/admin")}
-        />
-        <main className="flex-1 flex items-center justify-center pt-24 pb-16 px-4">
+        <div className="print:hidden">
+          <Header
+            onHome={() => navigate("/")}
+            onOpenAdmin={() => navigate("/admin")}
+          />
+        </div>
+        <main className="flex-1 flex items-center justify-center pt-24 pb-16 px-4 print:p-0 print:m-0 print:pt-0 print:pb-0">
           <SuccessCard
             regNumber={successInfo.regNumber}
             abstractNumber={successInfo.abstractNumber}
-            phone={successInfo.phone}
+            abstractNumbers={successInfo.abstractNumbers}
+            phone={successInfo.phone || form.phone}
+            email={successInfo.email || form.email}
+            fullName={successInfo.fullName || form.fullName}
+            institution={successInfo.institution || form.institution}
+            batch={successInfo.batch || form.batch}
+            academicYear={successInfo.academicYear || form.academicYear}
             title={successInfo.title}
             subtitle={successInfo.subtitle}
             onClose={() => navigate("/")}
@@ -1090,11 +1104,13 @@ export function Register({ initialMode = "register" }) {
             }}
           />
         </main>
-        <Footer
-          onOpenAdmin={() => navigate("/admin")}
-          onOpenRegister={() => { setSuccessInfo(null); setStep(0); setActiveTab("register"); }}
-          onOpenAbstract={() => { setSuccessInfo(null); setActiveTab("register"); setForm((f) => ({ ...f, submitAbstract: true })); setStep(2); }}
-        />
+        <div className="print:hidden">
+          <Footer
+            onOpenAdmin={() => navigate("/admin")}
+            onOpenRegister={() => { setSuccessInfo(null); setStep(0); setActiveTab("register"); }}
+            onOpenAbstract={() => { setSuccessInfo(null); setActiveTab("register"); setForm((f) => ({ ...f, submitAbstract: true })); setStep(2); }}
+          />
+        </div>
       </div>
     );
   }

@@ -190,3 +190,48 @@ body {
   background-size: 200% 100%;
   animation: badgeShimmer 4s ease-in-out infinite;
 }
+
+/* ── Print Media Optimization (Clean Attendee Pass / Certificate) ── */
+@media print {
+  @page {
+    margin: 1.2cm;
+    size: auto;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #0f172a !important;
+    overflow: visible !important;
+  }
+
+  /* Completely hide buttons, headers, footers, interactive elements */
+  header, footer, nav, .glass-header, .print\:hidden, [data-print="hidden"], button {
+    display: none !important;
+  }
+
+  /* Reset modal overlay for clean document flow */
+  .modal-overlay {
+    position: static !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Pass Card Styling on paper */
+  .modal-panel {
+    box-shadow: none !important;
+    border: 1.5px solid #cbd5e1 !important;
+    margin: 0 auto !important;
+    max-width: 100% !important;
+    page-break-inside: avoid !important;
+    background: #ffffff !important;
+    border-radius: 16px !important;
+  }
+}
+

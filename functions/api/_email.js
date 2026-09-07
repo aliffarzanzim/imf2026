@@ -131,6 +131,7 @@ export async function sendEmail({ env, to, subject, html, text, from, replyTo })
 export function buildRegistrationEmail({
   fullName,
   regNumber,
+  email,
   abstractNumber,
   abstractTitle,
   presentationCategory,
@@ -152,31 +153,29 @@ export function buildRegistrationEmail({
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IMF 2026 Registration Confirmation</title>
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px;">
-  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
     
-    <!-- Header Banner -->
-    <div style="background: linear-gradient(135deg, #0b1c3d 0%, #173b75 100%); padding: 32px 24px; text-align: center; color: #ffffff;">
-      <h1 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">Internal Medicine Festival 2026</h1>
-      <p style="margin: 0; font-size: 14px; color: #93c5fd;">DMC IMIG • ACP Bangladesh Chapter • Bangladesh Society of Medicine</p>
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #0284c7 0%, #0f766e 100%); padding: 32px 24px; text-align: center; color: #ffffff;">
+      <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">Internal Medicine Festival 2026</h1>
+      <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.9;">Registration Confirmation &amp; Official Pass</p>
     </div>
 
-    <!-- Main Content -->
+    <!-- Content -->
     <div style="padding: 32px 24px;">
-      <div style="display: inline-block; background-color: #ecfdf5; color: #047857; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; margin-bottom: 16px; border: 1px solid #a7f3d0;">
-        ✓ REGISTRATION CONFIRMED
-      </div>
-
-      <h2 style="margin: 0 0 16px 0; font-size: 20px; color: #0f172a;">Dear ${fullName},</h2>
-      <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
-        Thank you for registering for the <strong>Internal Medicine Festival 2026</strong>. Please save your registration credentials below for portal access and festival check-in.
+      <p style="font-size: 16px; margin: 0 0 16px 0; color: #334155;">
+        Dear <strong>${fullName}</strong>,
+      </p>
+      <p style="font-size: 14px; line-height: 1.6; margin: 0 0 24px 0; color: #475569;">
+        Thank you for registering for the <strong>National Internal Medicine Festival 2026</strong>. Your registration has been successfully processed and recorded in the official database.
       </p>
 
-      <!-- Credentials Card -->
-      <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-        <div style="margin-bottom: 12px;">
-          <span style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Registration Number:</span>
-          <div style="font-size: 22px; font-weight: 800; color: #1e3a8a; letter-spacing: 0.5px; font-family: monospace; margin-top: 4px;">${regNumber}</div>
+      <!-- Reg & Abstract Card -->
+      <div style="background-color: #f0fdf4; border: 2px dashed #86efac; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 24px;">
+        <div>
+          <span style="font-size: 12px; color: #166534; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Official Registration Number:</span>
+          <div style="font-size: 26px; font-weight: 800; color: #14532d; letter-spacing: 1px; font-family: monospace; margin-top: 4px;">${regNumber}</div>
         </div>
         ${abstractNumber ? `
         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
@@ -205,6 +204,11 @@ export function buildRegistrationEmail({
           <td style="padding: 8px 0; color: #64748b;">Phone:</td>
           <td style="padding: 8px 0; color: #0f172a; font-weight: 600;">${phone}</td>
         </tr>
+        ${email ? `
+        <tr>
+          <td style="padding: 8px 0; color: #64748b;">Email:</td>
+          <td style="padding: 8px 0; color: #0f172a; font-weight: 600;">${email}</td>
+        </tr>` : ""}
       </table>
 
       <!-- Activities Section -->
@@ -219,7 +223,7 @@ export function buildRegistrationEmail({
       <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 14px 16px; border-radius: 4px; margin-bottom: 24px;">
         <p style="margin: 0; font-size: 13px; color: #1e40af; line-height: 1.5;">
           <strong>Need to submit an abstract or update your profile?</strong><br>
-          Visit the IMF 2026 website anytime and click <em>"Already Registered?"</em> using your <strong>Registration Number</strong> (<code>${regNumber}</code>) and your registered <strong>Phone Number</strong>.
+          Visit the IMF 2026 website anytime and click <em>"Already Registered?"</em> using your registered <strong>Email Address</strong>${email ? ` (<code>${email}</code>)` : ""} to receive a secure one-time access code.
         </p>
       </div>
 

@@ -202,6 +202,7 @@ export async function onRequestPost(context) {
         html: buildRegistrationEmail({
           fullName: data.fullName.trim(),
           regNumber,
+          email: data.email.trim().toLowerCase(),
           abstractNumber,
           abstractTitle: hasAbstract ? data.abstractTitle?.trim() : null,
           submissionType: hasAbstract ? data.submissionType?.trim() : null,
