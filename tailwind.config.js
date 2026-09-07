@@ -19,8 +19,10 @@ export default {
         sans: ["Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
       },
       boxShadow: {
-        subtle: "var(--shadow-subtle)",
-        elevated: "var(--shadow-elevated)",
+        xs: "0 1px 2px rgba(15, 23, 42, 0.04)",
+        card: "0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03)",
+        elevated: "0 20px 35px -5px rgba(15, 23, 42, 0.08)",
+        modal: "0 25px 50px -12px rgba(15, 23, 42, 0.25)",
       },
       backdropBlur: {
         header: "12px",

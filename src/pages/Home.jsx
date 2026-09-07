@@ -1,30 +1,40 @@
-// src/pages/Home.js
-import React, { useState } from "react";
+// src/pages/Home.jsx
+import React from "react";
 import { Header } from "../components/Header";
 import { Hero } from "../components/Hero";
-import { RegisterModal } from "../components/RegisterModal";
-import { AbstractModal } from "../components/AbstractModal";
+import { Footer } from "../components/Footer";
 
 export function Home() {
-  const [showRegister, setShowRegister] = useState(false);
-  const [showAbstract, setShowAbstract] = useState(false);
+  function handleRegister() {
+    window.location.hash = "#/register";
+  }
 
-  function handleOpenAdmin() {
+  function handleAbstract() {
+    window.location.hash = "#/abstract";
+  }
+
+  function handleAdmin() {
     window.location.hash = "#/admin";
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc]">
       <Header
-        onOpenAdmin={handleOpenAdmin}
+        onOpenAdmin={handleAdmin}
         onHome={() => { window.location.hash = "#/"; }}
+        onOpenRegister={handleRegister}
       />
-      <Hero
-        onOpenRegister={() => setShowRegister(true)}
-        onOpenAbstract={() => setShowAbstract(true)}
+      <main className="flex-1">
+        <Hero
+          onOpenRegister={handleRegister}
+          onOpenAbstract={handleAbstract}
+        />
+      </main>
+      <Footer
+        onOpenAdmin={handleAdmin}
+        onOpenRegister={handleRegister}
+        onOpenAbstract={handleAbstract}
       />
-      {showRegister && <RegisterModal onClose={() => setShowRegister(false)} />}
-      {showAbstract && <AbstractModal onClose={() => setShowAbstract(false)} />}
     </div>
   );
 }

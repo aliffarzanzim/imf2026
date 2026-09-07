@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32" fill="none">
+  <defs>
+    <linearGradient id="imf-grad" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0d9488" />
+    </linearGradient>
+  </defs>
+  <!-- Background rounded squircle -->
+  <rect width="24" height="24" rx="6" fill="url(#imf-grad)" />
+  <!-- Stethoscope icon in crisp white -->
+  <path d="M5.5 4.5v3a4.5 4.5 0 0 0 9 0v-3" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M6.5 4.5h-2" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M15.5 4.5h-2" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M10 12v3.5a3.5 3.5 0 0 0 7 0v-2" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="17" cy="13.5" r="1.5" fill="#ffffff"/>
+</svg>

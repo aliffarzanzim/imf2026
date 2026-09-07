@@ -1,143 +1,124 @@
 /* ============================================================
    globals.css — Central Design Token System
-   No inline styles anywhere in the project. All values here.
+   Clean, modern, high-contrast healthcare conference theme
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-  /* ── Brand Palette ── */
-  --color-primary:            #005a9c;
-  --color-primary-hover:      #004070;
-  --color-primary-light:      #e8f1fa;
-  --color-accent:             #00a887;
-  --color-accent-hover:       #00856b;
-  --color-accent-light:       #e0f7f3;
+  /* ── Modern Medical Brand Palette ── */
+  --color-primary:            #0284c7;        /* Vibrant Sky / Cerulean Blue */
+  --color-primary-hover:      #0369a1;
+  --color-primary-light:      #f0f9ff;
+  --color-primary-border:     #bae6fd;
+  
+  --color-accent:             #0d9488;        /* Deep Medical Teal */
+  --color-accent-hover:       #0f766e;
+  --color-accent-light:       #f0fdfa;
+  --color-accent-border:      #99f6e4;
 
-  /* ── Neutrals ── */
+  /* ── Neutrals & Surfaces ── */
   --color-surface:            #ffffff;
   --color-surface-2:          #f8fafc;
-  --color-surface-translucent: rgba(255, 255, 255, 0.80);
+  --color-surface-translucent: rgba(255, 255, 255, 0.85);
   --color-border:             #e2e8f0;
-  --color-border-focus:       #00a887;
+  --color-border-subtle:      #f1f5f9;
+  --color-border-focus:       #0284c7;
 
-  /* ── Text ── */
-  --color-text-main:          #0f172a;
-  --color-text-body:          #334155;
-  --color-text-muted:         #64748b;
-  --color-text-subtle:        #94a3b8;
+  /* ── High-Contrast Typography ── */
+  --color-text-main:          #0f172a;        /* Deep Slate */
+  --color-text-body:          #334155;        /* Slate 700 */
+  --color-text-muted:         #64748b;        /* Slate 500 */
+  --color-text-subtle:        #94a3b8;        /* Slate 400 */
 
-  /* ── Semantic ── */
-  --color-success:            #16a34a;
-  --color-success-bg:         #dcfce7;
+  /* ── Semantic Colors ── */
+  --color-success:            #059669;
+  --color-success-bg:         #ecfdf5;
   --color-warning:            #d97706;
-  --color-warning-bg:         #fef3c7;
-  --color-danger:             #dc2626;
-  --color-danger-bg:          #fee2e2;
-  --color-info:               #0284c7;
-  --color-info-bg:            #e0f2fe;
+  --color-warning-bg:         #fffbeb;
+  --color-danger:             #e11d48;
+  --color-danger-bg:          #fff1f2;
+  --color-info:               #2563eb;
+  --color-info-bg:            #eff6ff;
 
-  /* ── Elevation & Glass ── */
-  --blur-header:              blur(16px);
-  --blur-modal:               blur(4px);
-  --shadow-xs:                0 1px 3px rgba(0,0,0,0.06);
-  --shadow-subtle:            0 4px 20px -2px rgba(0,0,0,0.06);
-  --shadow-card:              0 8px 24px -4px rgba(0,0,0,0.08);
-  --shadow-elevated:          0 20px 40px -8px rgba(0,0,0,0.12), 0 8px 16px -4px rgba(0,0,0,0.06);
-  --shadow-modal:             0 32px 64px -16px rgba(0,0,0,0.20);
+  /* ── Shadows & Blur ── */
+  --shadow-xs:                0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-card:              0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+  --shadow-elevated:          0 20px 35px -5px rgba(15, 23, 42, 0.08), 0 10px 15px -5px rgba(15, 23, 42, 0.04);
+  --shadow-glow-primary:      0 0 25px -3px rgba(2, 132, 199, 0.25);
+  --shadow-glow-accent:       0 0 25px -3px rgba(13, 148, 136, 0.25);
+  --shadow-modal:             0 25px 50px -12px rgba(15, 23, 42, 0.25);
 
-  /* ── Spacing Scale ── */
-  --radius-sm:    6px;
-  --radius-md:    10px;
-  --radius-lg:    16px;
+  --radius-sm:    8px;
+  --radius-md:    12px;
+  --radius-lg:    18px;
   --radius-xl:    24px;
   --radius-full:  9999px;
-
-  /* ── Transition ── */
-  --transition-fast:   150ms ease;
-  --transition-base:   200ms ease;
-  --transition-slow:   350ms ease;
 }
 
-/* ── Base Reset ── */
+/* ── Global Resets ── */
 *, *::before, *::after {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
 html {
   scroll-behavior: smooth;
-  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 16px;
-  line-height: 1.6;
-  color: var(--color-text-main);
-  background-color: var(--color-surface-2);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--color-text-body);
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(at 15% 15%, rgba(2, 132, 199, 0.06) 0px, transparent 50%),
+    radial-gradient(at 85% 10%, rgba(13, 148, 136, 0.07) 0px, transparent 50%),
+    radial-gradient(at 50% 85%, rgba(99, 102, 241, 0.04) 0px, transparent 60%);
+  background-attachment: fixed;
+  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  min-height: 100vh;
 }
 
-/* ── Hero Background Gradient ── */
-.hero-bg {
-  background:
-    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(0, 90, 156, 0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(0, 168, 135, 0.10) 0%, transparent 60%),
-    linear-gradient(180deg, #f0f6ff 0%, #f8fafc 40%, #ffffff 100%);
-  min-height: 100vh;
-}
-
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* ── Modern Custom Scrollbar ── */
+::-webkit-scrollbar { width: 7px; height: 7px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: var(--radius-full); }
-::-webkit-scrollbar-thumb:hover { background: var(--color-text-subtle); }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
 /* ── Focus Ring ── */
 :focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
-/* ── Animations ── */
+/* ── Shimmer & Keyframe Animations ── */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0)  scale(1); }
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(24px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes pulse-ring {
-  0%   { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 168, 135, 0.4); }
-  70%  { transform: scale(1);    box-shadow: 0 0 0 10px rgba(0, 168, 135, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 168, 135, 0); }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
+@keyframes pulseRing {
+  0%   { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.4); }
+  70%  { transform: scale(1);    box-shadow: 0 0 0 10px rgba(13, 148, 136, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(13, 148, 136, 0); }
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+@keyframes badgeShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
-.animate-fade-in   { animation: fadeIn  0.25s ease-out forwards; }
-.animate-slide-up  { animation: slideUp 0.30s ease-out forwards; }
-.animate-pulse-ring { animation: pulse-ring 2s infinite; }
-.animate-spin      { animation: spin 0.8s linear infinite; }
+.animate-fade-in    { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-slide-up   { animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-pulse-ring { animation: pulseRing 2.2s infinite; }
 
-/* ── Shimmer loading skeleton ── */
-.skeleton {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+.badge-shimmer {
+  background: linear-gradient(90deg, rgba(240, 253, 250, 0.8) 0%, rgba(204, 251, 241, 0.9) 50%, rgba(240, 253, 250, 0.8) 100%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  border-radius: var(--radius-md);
+  animation: badgeShimmer 4s ease-in-out infinite;
 }

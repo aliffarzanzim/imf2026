@@ -1,134 +1,205 @@
-// src/components/Hero.js
-import React from "react";
+// src/components/Hero.jsx
+import React, { useState, useEffect } from "react";
 import { Icons } from "../assets/icons";
 
 const ORGANIZERS = [
-  "DMC IMIG",
-  "ACP Bangladesh Chapter",
-  "Bangladesh Society of Medicine (BSM)",
-];
-
-const EVENT_DETAILS = [
-  { icon: Icons.Date,       label: "17 September 2026" },
-  { icon: Icons.Degree,     label: "1st Year – Final Year" },
-  { icon: Icons.Activity,   label: "Registration: FREE" },
+  { name: "DMC IMIG", role: "Dhaka Medical College" },
+  { name: "ACP Bangladesh Chapter", role: "American College of Physicians" },
+  { name: "Bangladesh Society of Medicine", role: "BSM" },
 ];
 
 const ACTIVITIES = [
-  { icon: Icons.BookOpen,     label: "Scientific Seminar / CME" },
-  { icon: Icons.Brain,        label: "Mental Health Session" },
-  { icon: Icons.Stethoscope,  label: "Career Counselling" },
-  { icon: Icons.Trophy,       label: "Quiz & Olympiad" },
-  { icon: Icons.Clipboard,    label: "Clinical Case Challenge" },
-  { icon: Icons.Microscope,   label: "Academic Presentations" },
+  {
+    icon: Icons.Clipboard,
+    title: "Clinical Reasoning",
+    desc: "Interactive diagnostic case challenges & master clinician discussions.",
+    color: "from-blue-500/10 to-indigo-500/10 text-blue-600",
+  },
+  {
+    icon: Icons.BookOpen,
+    title: "Scientific Seminar / CME",
+    desc: "Keynotes from leading national and international internists.",
+    color: "from-sky-500/10 to-teal-500/10 text-sky-600",
+  },
+  {
+    icon: Icons.Trophy,
+    title: "Quiz & Olympiad",
+    desc: "High-stakes medical competition testing clinical diagnosis and pathology.",
+    color: "from-amber-500/10 to-orange-500/10 text-amber-600",
+  },
+  {
+    icon: Icons.Microscope,
+    title: "Abstract Presentations",
+    desc: "Oral and poster presentations of original research and rare cases.",
+    color: "from-teal-500/10 to-emerald-500/10 text-teal-600",
+  },
+  {
+    icon: Icons.Stethoscope,
+    title: "Career Counselling",
+    desc: "Roadmaps for FCPS, MD, MRCP, USMLE, and residency planning.",
+    color: "from-purple-500/10 to-pink-500/10 text-purple-600",
+  },
+  {
+    icon: Icons.Brain,
+    title: "Mental Health Session",
+    desc: "Dedicated wellness, burnout prevention, and mindfulness workshop.",
+    color: "from-rose-500/10 to-red-500/10 text-rose-600",
+  },
 ];
 
 export function Hero({ onOpenRegister, onOpenAbstract }) {
+  // Live countdown to deadline: 14 September 2026 23:59:59
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0 });
+
+  useEffect(() => {
+    function updateCountdown() {
+      const deadline = new Date("2026-09-14T23:59:59").getTime();
+      const now = new Date().getTime();
+      const diff = Math.max(0, deadline - now);
+
+      setTimeLeft({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+      });
+    }
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
-    <section className="hero-bg relative overflow-hidden">
-      {/* Decorative blobs */}
-      <div className="pointer-events-none absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-[var(--color-primary)] opacity-[0.04] blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[var(--color-accent)] opacity-[0.06] blur-3xl" />
+    <section className="relative pt-24 pb-16 sm:pt-32 sm:pb-24 overflow-hidden">
+      {/* Background ambient lighting */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-tr from-sky-400/15 to-teal-300/15 rounded-full blur-3xl pointer-events-none -z-10" />
 
-      <div className="relative max-w-6xl mx-auto px-6 pt-28 pb-20 flex flex-col items-center text-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center">
 
-        {/* Organizer Badges */}
-        <div className="flex flex-wrap items-center justify-center gap-2 mb-8 animate-fade-in">
-          {ORGANIZERS.map((org, i) => (
-            <span key={i} className="badge-neutral font-medium">
-              {org}
-            </span>
-          ))}
+        {/* Top Shimmer Badge */}
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-teal-200/80 bg-white/90 shadow-xs mb-8 backdrop-blur-md animate-fade-in">
+          <span className="w-2 h-2 rounded-full bg-teal-500 animate-ping" />
+          <span className="text-xs font-bold tracking-wide uppercase text-slate-700">
+            DMC IMIG &nbsp;•&nbsp; ACP Bangladesh &nbsp;•&nbsp; BSM
+          </span>
         </div>
 
-        {/* Tagline */}
-        <p className="text-sm font-semibold tracking-[0.2em] uppercase text-[var(--color-accent)] mb-4 animate-fade-in">
-          National Internal Medicine Festival 2026
-        </p>
-
-        {/* Main Title */}
-        <h1 className="max-w-4xl text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight text-[var(--color-text-main)] animate-slide-up">
-          "Inspiring the Future of{" "}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-accent)]">
-            Internal Medicine"
+        {/* Clean, Impactful Headline without clunky quotes */}
+        <h1 className="max-w-4xl text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-slate-900 leading-[1.08] animate-slide-up">
+          Inspiring the Future of <br className="hidden sm:inline" />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-600 via-teal-600 to-emerald-600">
+            Internal Medicine
           </span>
         </h1>
 
-        <p className="max-w-2xl mt-5 text-base sm:text-lg text-[var(--color-text-muted)] leading-relaxed animate-fade-in">
-          Bringing together clinical reasoning, academic research, and medical
-          students from across the nation for a day of inspiration and learning.
+        {/* Subtitle */}
+        <p className="max-w-2xl mt-6 text-base sm:text-lg text-slate-600 leading-relaxed font-normal animate-fade-in">
+          Bangladesh's premier national gathering of future diagnosticians,
+          internists, and clinical researchers for a transformative day of academic excellence.
         </p>
 
-        {/* Event Detail Pills */}
-        <div className="flex flex-wrap items-center justify-center gap-4 mt-7 animate-fade-in">
-          {EVENT_DETAILS.map(({ icon: Icon, label }, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-body)]">
-              <Icon className="w-4 h-4 text-[var(--color-accent)] flex-shrink-0" />
-              {label}
-            </div>
-          ))}
+        {/* Key Information Chips */}
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-8 animate-fade-in">
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 shadow-xs text-xs font-semibold text-slate-700">
+            <Icons.Date className="w-4 h-4 text-sky-600" />
+            <span>17 September 2026</span>
+          </div>
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 shadow-xs text-xs font-semibold text-slate-700">
+            <Icons.Degree className="w-4 h-4 text-teal-600" />
+            <span>1st Year to Final Year</span>
+          </div>
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 shadow-xs text-xs font-bold text-emerald-700">
+            <Icons.Check className="w-4 h-4 text-emerald-600" />
+            <span>100% Free Registration</span>
+          </div>
         </div>
 
-        {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 mt-8 w-full max-w-sm sm:max-w-none sm:w-auto animate-slide-up">
+        {/* Primary CTA Buttons */}
+        <div className="flex flex-col sm:flex-row gap-3.5 mt-8 w-full max-w-md sm:max-w-none sm:w-auto animate-slide-up">
           <button
             id="open-register-btn"
             onClick={onOpenRegister}
-            className="btn-primary px-8 py-3.5 text-base shadow-lg"
+            className="btn-primary text-base py-3.5 px-8 shadow-lg shadow-sky-500/25 flex items-center justify-center gap-2 group"
           >
-            <Icons.Clipboard className="w-5 h-5" />
-            Register for Festival
+            <span>Register for Festival</span>
+            <Icons.Back className="w-4 h-4 rotate-180 group-hover:translate-x-1 transition-transform duration-150" />
           </button>
           <button
             id="open-abstract-btn"
             onClick={onOpenAbstract}
-            className="btn-accent px-8 py-3.5 text-base shadow-lg"
+            className="btn-outline text-base py-3.5 px-8 flex items-center justify-center gap-2 hover:border-teal-500 hover:text-teal-700"
           >
-            <Icons.FileUp className="w-5 h-5" />
-            Submit Abstract
+            <Icons.Upload className="w-4 h-4 text-teal-600" />
+            <span>Submit Abstract</span>
           </button>
         </div>
 
-        {/* Deadline Notice */}
-        <p className="mt-4 text-xs text-[var(--color-text-muted)] animate-fade-in">
-          Last date for registration & abstract submission:{" "}
-          <span className="font-semibold text-[var(--color-danger)]">14 September 2026</span>
-        </p>
+        {/* Deadline & Urgency Ribbon */}
+        <div className="mt-5 flex items-center justify-center gap-2 text-xs text-slate-500">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+          <span>Registration & Abstract Deadline:</span>
+          <strong className="text-rose-600 font-bold">14 September 2026</strong>
+          {timeLeft.days > 0 && (
+            <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 text-[11px] font-semibold border border-rose-200/60">
+              {timeLeft.days}d {timeLeft.hours}h left
+            </span>
+          )}
+        </div>
 
-        {/* Activities Grid */}
-        <div className="mt-16 w-full max-w-4xl">
-          <p className="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-muted)] mb-5">
-            Featured Activities
+        {/* ── Featured Activities Section ── */}
+        <div className="mt-20 w-full max-w-6xl">
+          <div className="text-center mb-10">
+            <span className="text-xs font-extrabold uppercase tracking-widest text-teal-600">
+              Festival Program
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+              Featured Segments & Competitions
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-lg mx-auto">
+              Participate in inter-medical competitions, CME updates, and scientific poster sessions.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-left">
+            {ACTIVITIES.map((act, i) => {
+              const Icon = act.icon;
+              return (
+                <div
+                  key={i}
+                  className="card p-5 hover:border-sky-300 hover:shadow-elevated hover:-translate-y-1 transition-all duration-200 group bg-white"
+                >
+                  <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${act.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-200`}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-sky-600 transition-colors">
+                    {act.title}
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-1.5 leading-relaxed font-normal">
+                    {act.desc}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Institutional Endorsements ── */}
+        <div className="mt-20 pt-10 border-t border-slate-200/80 w-full max-w-4xl">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-6">
+            Under the Distinguished Auspices of
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {ACTIVITIES.map(({ icon: Icon, label }, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {ORGANIZERS.map((org, i) => (
               <div
                 key={i}
-                className="card-sm flex flex-col items-center gap-2 p-4 text-center hover:shadow-[var(--shadow-card)] hover:-translate-y-0.5 transition-all duration-200"
+                className="p-4 rounded-xl border border-slate-200/70 bg-white/70 backdrop-blur-sm text-center shadow-xs"
               >
-                <div className="w-10 h-10 rounded-xl bg-[var(--color-primary-light)] flex items-center justify-center">
-                  <Icon className="w-5 h-5 text-[var(--color-primary)]" />
-                </div>
-                <span className="text-xs font-medium text-[var(--color-text-body)] leading-tight">
-                  {label}
-                </span>
+                <div className="font-bold text-slate-800 text-sm">{org.name}</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">{org.role}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Organizer Footer Strip */}
-        <div className="mt-16 pt-8 border-t border-[var(--color-border)] w-full flex flex-col sm:flex-row items-center justify-center gap-3 text-sm text-[var(--color-text-muted)]">
-          <span>Organized by</span>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {ORGANIZERS.map((org, i) => (
-              <React.Fragment key={i}>
-                <span className="font-semibold text-[var(--color-text-main)]">{org}</span>
-                {i < ORGANIZERS.length - 1 && <span className="text-[var(--color-text-subtle)]">•</span>}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
       </div>
     </section>
   );
