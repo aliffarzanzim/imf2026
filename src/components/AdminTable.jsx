@@ -21,18 +21,22 @@ const TOTAL_COMPETITIONS = 6;
 
 function parseActivities(act) {
   if (!act) return [];
-  if (Array.isArray(act)) return act.filter(Boolean);
-  if (typeof act === "string") {
+  let list = [];
+  if (Array.isArray(act)) {
+    list = act.filter(Boolean);
+  } else if (typeof act === "string") {
     const trimmed = act.trim();
     if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
       try {
         const parsed = JSON.parse(trimmed);
-        if (Array.isArray(parsed)) return parsed.filter(Boolean);
+        if (Array.isArray(parsed)) list = parsed.filter(Boolean);
       } catch (_) {}
     }
-    return trimmed.split(",").map((s) => s.trim()).filter(Boolean);
+    if (list.length === 0) {
+      list = trimmed.split(",").map((s) => s.trim()).filter(Boolean);
+    }
   }
-  return [];
+  return list.filter((a) => a && !a.toLowerCase().includes("olympiad"));
 }
 
 function parseCompetitions(comp) {
@@ -992,18 +996,17 @@ export function AdminTable() {
                         </td>
 
                         {/* Abstracts Count Column */}
-                        <td className="text-center">
+                        <td className="text-center whitespace-nowrap">
                           {absCount > 0 ? (
                             <button
                               onClick={() => setViewRecord(r)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 hover:bg-teal-100 hover:border-teal-300 transition-all shadow-xs"
+                              className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-bold font-mono text-teal-800 bg-teal-50 border border-teal-200 hover:bg-teal-100 hover:border-teal-300 transition-all shadow-xs"
                               title={`Click to view ${absCount} abstract(s)`}
                             >
-                              <Icons.Microscope className="w-3.5 h-3.5 text-teal-600" />
-                              <span>{absCount} {absCount === 1 ? "Abstract" : "Abstracts"}</span>
+                              {absCount}
                             </button>
                           ) : (
-                            <span className="px-2 py-0.5 rounded text-[11px] font-semibold text-slate-400 bg-slate-100">
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-xs font-medium font-mono text-slate-400 bg-slate-100 border border-slate-200/60">
                               0
                             </span>
                           )}
@@ -1116,13 +1119,13 @@ export function AdminTable() {
                       {absCount > 0 ? (
                         <button
                           onClick={() => setViewRecord(r)}
-                          className="font-bold text-teal-800 bg-teal-100/80 px-2.5 py-0.5 rounded text-xs hover:bg-teal-200 flex items-center gap-1"
+                          className="font-bold text-teal-800 bg-teal-100/80 px-2.5 py-0.5 rounded text-xs hover:bg-teal-200 font-mono"
+                          title={`Click to view ${absCount} abstract(s)`}
                         >
-                          <Icons.Microscope className="w-3 h-3 text-teal-700" />
-                          <span>{absCount} {absCount === 1 ? "Abstract" : "Abstracts"} →</span>
+                          {absCount}
                         </button>
                       ) : (
-                        <span className="text-slate-400 font-semibold">0 Submitted</span>
+                        <span className="text-slate-400 font-semibold font-mono">0</span>
                       )}
                     </div>
 
