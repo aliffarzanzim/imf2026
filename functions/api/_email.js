@@ -46,7 +46,7 @@ export async function sendEmail({ env, to, subject, html, text, from, replyTo })
     const trimmed = env.GOOGLE_SCRIPT_URL_5.trim();
     if (trimmed && !scriptUrls.includes(trimmed)) scriptUrls.push(trimmed);
   }
-  for (let idx = 6; idx <= 15; idx++) {
+  for (let idx = 6; idx <= 30; idx++) {
     const key = `GOOGLE_SCRIPT_URL_${idx}`;
     if (env?.[key]) {
       const trimmed = env[key].trim();
