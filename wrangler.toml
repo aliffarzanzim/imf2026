@@ -8,10 +8,10 @@ binding = "DB"
 database_name = "imf-db"
 database_id = "db75abbe-7614-4480-805c-c7b5164e2256"
 
-# R2 Bucket Binding (Enable R2 in Cloudflare dashboard, then uncomment)
-# [[r2_buckets]]
-# binding = "ABSTRACTS_BUCKET"
-# bucket_name = "imf-abstracts"
+# R2 Bucket Binding
+[[r2_buckets]]
+binding = "ABSTRACTS_BUCKET"
+bucket_name = "imf-abstracts"
 
 [vars]
 R2_BUCKET_NAME = "imf-abstracts"
