@@ -262,39 +262,43 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDelete
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500 italic">No specific activities selected.</p>
+                  <p className="text-xs text-slate-400 italic">Not added</p>
                 )}
               </div>
 
               {/* Competitions / Extra Info */}
-              {(record.competition_category || record.prior_experience || record.queries) && (
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
-                    <Icons.Trophy className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Competitions &amp; Additional Information</span>
-                  </h4>
-                  <div className="space-y-2.5 text-xs bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    {record.competition_category && (
-                      <div>
-                        <span className="text-slate-400 block text-[11px]">Competition Category</span>
-                        <span className="font-semibold text-slate-800">{record.competition_category}</span>
-                      </div>
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                  <Icons.Trophy className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Competitions &amp; Additional Information</span>
+                </h4>
+                <div className="space-y-3 text-xs bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Competition Category</span>
+                    {record.competition_category && record.competition_category.trim() ? (
+                      <span className="font-semibold text-slate-800 mt-0.5 block">{record.competition_category}</span>
+                    ) : (
+                      <span className="text-slate-400 italic text-xs mt-0.5 block">Not added</span>
                     )}
-                    {record.prior_experience && (
-                      <div>
-                        <span className="text-slate-400 block text-[11px]">Prior Experience</span>
-                        <p className="text-slate-700 mt-0.5 leading-relaxed">{record.prior_experience}</p>
-                      </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Prior Experience</span>
+                    {record.prior_experience && record.prior_experience.trim() ? (
+                      <p className="text-slate-700 mt-0.5 leading-relaxed">{record.prior_experience}</p>
+                    ) : (
+                      <p className="text-slate-400 italic text-xs mt-0.5">Not added</p>
                     )}
-                    {record.queries && (
-                      <div>
-                        <span className="text-slate-400 block text-[11px]">Queries / Notes</span>
-                        <p className="text-slate-700 mt-0.5 leading-relaxed">{record.queries}</p>
-                      </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Suggestions / Queries / Notes</span>
+                    {record.queries && record.queries.trim() ? (
+                      <p className="text-slate-700 mt-0.5 leading-relaxed">{record.queries}</p>
+                    ) : (
+                      <p className="text-slate-400 italic text-xs mt-0.5">Not added</p>
                     )}
                   </div>
                 </div>
-              )}
+              </div>
             </>
           )}
 
@@ -351,44 +355,72 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDelete
                     </div>
 
                     {/* Metadata Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 bg-white p-3.5 rounded-xl border border-slate-200/70">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-slate-600 bg-white p-3.5 rounded-xl border border-slate-200/70">
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase font-bold">Designated Presenter</span>
-                        <span className="font-semibold text-slate-800">{abs.presenter_name || record.full_name}</span>
+                        <span className="font-semibold text-slate-800 mt-0.5 block">
+                          {abs.presenter_name || record.full_name || <span className="text-slate-400 italic font-normal">Not added</span>}
+                        </span>
                       </div>
-                      {abs.supervisor_name && (
-                        <div>
-                          <span className="text-slate-400 block text-[10px] uppercase font-bold">Faculty Guide / Mentor</span>
-                          <span className="font-semibold text-slate-800">{abs.supervisor_name}</span>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Faculty Guide / Mentor</span>
+                        <span className="font-semibold text-slate-800 mt-0.5 block">
+                          {abs.supervisor_name && abs.supervisor_name.trim() ? (
+                            abs.supervisor_name
+                          ) : (
+                            <span className="text-slate-400 italic font-normal">Not added</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Author Affiliation / Institution</span>
+                        <span className="font-medium text-slate-700 mt-0.5 block">
+                          {abs.author_affiliation && abs.author_affiliation.trim() ? (
+                            abs.author_affiliation
+                          ) : (
+                            <span className="text-slate-400 italic font-normal">Not added</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Co-Authors</span>
+                        <span className="font-medium text-slate-700 mt-0.5 block">
+                          {abs.co_authors && abs.co_authors.trim() ? (
+                            abs.co_authors
+                          ) : (
+                            <span className="text-slate-400 italic font-normal">Not added</span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Keywords</span>
+                        <span className="font-medium text-slate-700 mt-0.5 block">
+                          {abs.keywords && abs.keywords.trim() ? (
+                            abs.keywords
+                          ) : (
+                            <span className="text-slate-400 italic font-normal">Not added</span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Abstract Text Body */}
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold mb-1">Abstract Text</span>
+                      {abs.abstract_body && abs.abstract_body.trim() ? (
+                        <div className="p-3 bg-white rounded-xl border border-slate-200/70 text-xs text-slate-700 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap">
+                          {abs.abstract_body}
                         </div>
-                      )}
-                      {abs.co_authors && (
-                        <div className="sm:col-span-2">
-                          <span className="text-slate-400 block text-[10px] uppercase font-bold">Co-Authors</span>
-                          <span className="font-medium text-slate-700">{abs.co_authors}</span>
-                        </div>
-                      )}
-                      {abs.keywords && (
-                        <div className="sm:col-span-2">
-                          <span className="text-slate-400 block text-[10px] uppercase font-bold">Keywords</span>
-                          <span className="font-medium text-slate-700">{abs.keywords}</span>
+                      ) : (
+                        <div className="p-3 bg-white rounded-xl border border-slate-200/70 text-xs text-slate-400 italic">
+                          Not added
                         </div>
                       )}
                     </div>
 
-                    {/* Abstract Text Body */}
-                    {abs.abstract_body && (
-                      <div>
-                        <span className="text-slate-400 block text-[10px] uppercase font-bold mb-1">Abstract Text</span>
-                        <div className="p-3 bg-white rounded-xl border border-slate-200/70 text-xs text-slate-700 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap">
-                          {abs.abstract_body}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Download Buttons */}
-                    <div className="pt-2 flex flex-wrap items-center gap-2">
-                      {abs.file_name && (
+                    <div className="pt-2 flex flex-wrap items-center gap-2 text-xs">
+                      {abs.file_name ? (
                         <a
                           href={`/api/admin/file?key=${encodeURIComponent(abs.r2_file_key)}&name=${encodeURIComponent(abs.file_name)}&token=${token}`}
                           target="_blank"
@@ -398,9 +430,13 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDelete
                           <Icons.Download className="w-3.5 h-3.5" />
                           <span>Manuscript: {abs.file_name} ({formatBytes(abs.file_size)})</span>
                         </a>
+                      ) : (
+                        <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 text-xs italic">
+                          Manuscript: Not added
+                        </span>
                       )}
 
-                      {abs.presentation_file_name && (
+                      {abs.presentation_file_name ? (
                         <a
                           href={`/api/admin/file?key=${encodeURIComponent(abs.presentation_file_key)}&name=${encodeURIComponent(abs.presentation_file_name)}&token=${token}`}
                           target="_blank"
@@ -410,6 +446,10 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDelete
                           <Icons.Download className="w-3.5 h-3.5" />
                           <span>Slides: {abs.presentation_file_name}</span>
                         </a>
+                      ) : (
+                        <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 text-xs italic">
+                          Presentation Slides: Not added
+                        </span>
                       )}
                     </div>
                   </div>
