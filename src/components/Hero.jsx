@@ -1,11 +1,29 @@
 // src/components/Hero.jsx
 import React, { useState, useEffect } from "react";
 import { Icons } from "../assets/icons";
+import imigLogo from "../assets/logos/imig.jpg";
+import acpLogo from "../assets/logos/acp.jpg";
+import bsmLogo from "../assets/logos/bsm.jpg";
 
 const ORGANIZERS = [
-  { name: "DMC IMIG", role: "Dhaka Medical College" },
-  { name: "ACP Bangladesh Chapter", role: "American College of Physicians" },
-  { name: "BSM", role: "Bangladesh Society of Medicine" },
+  {
+    name: "DMC IMIG",
+    role: "Dhaka Medical College Internal Medicine Interest Group",
+    logo: imigLogo,
+    alt: "DMC IMIG Logo",
+  },
+  {
+    name: "ACP Bangladesh Chapter",
+    role: "American College of Physicians",
+    logo: acpLogo,
+    alt: "ACP Bangladesh Chapter Logo",
+  },
+  {
+    name: "BSM",
+    role: "Bangladesh Society of Medicine",
+    logo: bsmLogo,
+    alt: "Bangladesh Society of Medicine Logo",
+  },
 ];
 
 
@@ -154,10 +172,12 @@ export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
           {/* Scroll Cue to Activities */}
           <a
             href="#activities"
-            className="mt-8 sm:mt-10 inline-flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors group cursor-pointer"
+            className="mt-8 sm:mt-10 inline-flex flex-col items-center gap-1.5 text-slate-400 hover:text-slate-600 transition-colors group cursor-pointer"
           >
             <span className="text-[11px] font-medium tracking-wide">Explore Festival Program</span>
-            <Icons.Back className="w-3.5 h-3.5 -rotate-90 text-slate-400 group-hover:translate-y-0.5 transition-transform" />
+            <div className="animate-bounce mt-0.5">
+              <Icons.Back className="w-4 h-4 -rotate-90 text-slate-500" />
+            </div>
           </a>
 
         </div>
@@ -206,14 +226,24 @@ export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
               Under the Distinguished Auspices of
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               {ORGANIZERS.map((org, i) => (
                 <div
                   key={i}
-                  className="p-5 rounded-2xl border border-slate-200/80 bg-white text-center shadow-xs hover:border-slate-300 transition-colors"
+                  className="p-6 rounded-2xl border border-slate-200/90 bg-white text-center shadow-xs hover:border-slate-300 hover:shadow-card transition-all flex flex-col items-center justify-between group"
                 >
-                  <div className="font-extrabold text-slate-900 text-sm">{org.name}</div>
-                  <div className="text-xs text-slate-500 font-medium mt-1">{org.role}</div>
+                  <div className="h-24 w-full flex items-center justify-center mb-4">
+                    <img
+                      src={org.logo}
+                      alt={org.alt}
+                      className="max-h-24 max-w-[85%] object-contain group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                  </div>
+                  <div>
+                    <div className="font-extrabold text-slate-900 text-sm tracking-tight">{org.name}</div>
+                    <div className="text-xs text-slate-500 font-medium mt-1">{org.role}</div>
+                  </div>
                 </div>
               ))}
             </div>

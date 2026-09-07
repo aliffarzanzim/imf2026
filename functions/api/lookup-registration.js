@@ -152,19 +152,41 @@ export async function onRequestPost(context) {
       parsedActivities = reg.activities || [];
     }
 
-    // Look up linked abstract if any
-    let abstractRow = null;
+    // Look up linked abstracts
+    let rawAbstracts = [];
     try {
-      abstractRow = await env.DB.prepare(
-        "SELECT * FROM abstracts WHERE reg_number = ? LIMIT 1"
-      ).bind(reg.reg_number).first();
+      const absRes = await env.DB.prepare(
+        "SELECT * FROM abstracts WHERE reg_number = ? OR LOWER(TRIM(email)) = ? ORDER BY id ASC"
+      ).bind(reg.reg_number, cleanEmail).all();
+      const allRows = (absRes && absRes.results) || [];
+      const seenIds = new Set();
+      rawAbstracts = allRows.filter((row) => {
+        if (!row.id || seenIds.has(row.id)) return false;
+        seenIds.add(row.id);
+        return true;
+      });
     } catch (_) {}
 
-    if (!abstractRow) {
-      abstractRow = await env.DB.prepare(
-        "SELECT * FROM abstracts WHERE LOWER(TRIM(email)) = ? ORDER BY id DESC LIMIT 1"
-      ).bind(cleanEmail).first();
-    }
+    const formattedAbstracts = rawAbstracts.map((row) => ({
+      id: row.id,
+      abstractNumber: row.abstract_number,
+      regNumber: row.reg_number || reg.reg_number,
+      title: row.title,
+      submissionType: row.submission_type,
+      presentationCategory: row.presentation_category,
+      abstractBody: row.abstract_body,
+      keywords: row.keywords,
+      presenterName: row.presenter_name,
+      coAuthors: row.co_authors,
+      authorAffiliation: row.author_affiliation,
+      supervisorName: row.supervisor_name,
+      r2FileKey: row.r2_file_key,
+      fileName: row.file_name,
+      fileSize: row.file_size,
+      presentationFileKey: row.presentation_file_key,
+      presentationFileName: row.presentation_file_name,
+      createdAt: row.created_at,
+    }));
 
     return new Response(
       JSON.stringify({
@@ -185,26 +207,8 @@ export async function onRequestPost(context) {
           queries: reg.queries,
           createdAt: reg.created_at,
         },
-        abstract: abstractRow ? {
-          id: abstractRow.id,
-          abstractNumber: abstractRow.abstract_number,
-          regNumber: abstractRow.reg_number || reg.reg_number,
-          title: abstractRow.title,
-          submissionType: abstractRow.submission_type,
-          presentationCategory: abstractRow.presentation_category,
-          abstractBody: abstractRow.abstract_body,
-          keywords: abstractRow.keywords,
-          presenterName: abstractRow.presenter_name,
-          coAuthors: abstractRow.co_authors,
-          authorAffiliation: abstractRow.author_affiliation,
-          supervisorName: abstractRow.supervisor_name,
-          r2FileKey: abstractRow.r2_file_key,
-          fileName: abstractRow.file_name,
-          fileSize: abstractRow.file_size,
-          presentationFileKey: abstractRow.presentation_file_key,
-          presentationFileName: abstractRow.presentation_file_name,
-          createdAt: abstractRow.created_at,
-        } : null,
+        abstracts: formattedAbstracts,
+        abstract: formattedAbstracts[0] || null,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );

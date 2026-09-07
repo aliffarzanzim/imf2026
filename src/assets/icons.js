@@ -47,6 +47,7 @@ import {
   PresentationIcon,
   Microscope,
   HeartPulse,
+  Lock,
 } from "lucide-react";
 
 export const Icons = {
@@ -55,6 +56,7 @@ export const Icons = {
   Admin:         ShieldCheck,
   Logout:        LogOut,
   Back:          ArrowLeft,
+  Lock:          Lock,
 
   // Actions
   Upload:        UploadCloud,

@@ -12,16 +12,18 @@ const BATCHES = ["K-79", "K-80", "K-81", "K-82", "K-83", "Other"];
 const YEARS   = ["1st Year", "2nd Year", "3rd Year", "4th Year", "Final Year"];
 
 const SUBMISSION_TYPES = [
-  "Original Research",
-  "Clinical Case Report",
-  "Systematic Review / Meta-Analysis",
-  "Clinical Audit & Quality Improvement",
+  "Original Article",
+  "Case Report",
+  "Case Series",
+  "Systematic Review",
+  "Meta-analysis",
+  "Review Article",
+  "Other",
 ];
 
 const PRESENTATION_CATEGORIES = [
-  "Oral Presentation",
-  "Poster Presentation",
-  "Either (Committee Discretion)",
+  "Academic Topic Presentation",
+  "Academic Poster Presentation",
 ];
 
 const STEPS = [
@@ -73,8 +75,8 @@ export function SubmitAbstract() {
       setError(`Unsupported file format (.${ext}). Please upload a PDF or Word document (.docx).`);
       return;
     }
-    if (file.size > 100 * 1024 * 1024) {
-      setError(`File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is 100 MB.`);
+    if (file.size > 10 * 1024 * 1024) {
+      setError(`File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is 10 MB.`);
       return;
     }
     setError("");
@@ -110,8 +112,8 @@ export function SubmitAbstract() {
       if (!form.title.trim())                return "Abstract title is required.";
       if (!form.submissionType)              return "Please select a submission type.";
       if (!form.presentationCategory)        return "Please select a presentation preference.";
-      if (form.abstractBody.trim().length < 50)
-        return "Abstract text body must be at least 50 characters.";
+      if (!form.abstractBody.trim())
+        return "Abstract text is required.";
       if (!form.presenterName.trim())        return "Presenter's name is required.";
     }
     if (step === 2) {
@@ -476,12 +478,12 @@ export function SubmitAbstract() {
 
               <div className="space-y-5">
                 <div className="form-group">
-                  <label className="form-label form-label-required" htmlFor="title">Abstract Title</label>
+                  <label className="form-label form-label-required" htmlFor="title">7. Title of the Abstract</label>
                   <input
                     id="title"
                     type="text"
                     className="form-input"
-                    placeholder="e.g. Atypical Presentation of Adult-Onset Still's Disease..."
+                    placeholder="Enter abstract title"
                     value={form.title}
                     onChange={(e) => set("title", e.target.value)}
                     required
@@ -490,7 +492,7 @@ export function SubmitAbstract() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div className="form-group">
-                    <label className="form-label form-label-required" htmlFor="submissionType">Submission Type</label>
+                    <label className="form-label form-label-required" htmlFor="submissionType">8. Type of Submission</label>
                     <select
                       id="submissionType"
                       className="form-select"
@@ -504,7 +506,7 @@ export function SubmitAbstract() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label form-label-required" htmlFor="presCat">Presentation Preference</label>
+                    <label className="form-label form-label-required" htmlFor="presCat">9. Presentation Category</label>
                     <select
                       id="presCat"
                       className="form-select"
@@ -520,16 +522,16 @@ export function SubmitAbstract() {
 
                 <div className="form-group">
                   <div className="flex justify-between items-center">
-                    <label className="form-label form-label-required" htmlFor="abstractBody">Abstract Body</label>
+                    <label className="form-label form-label-required" htmlFor="abstractBody">10. Abstract</label>
                     <span className="text-[11px] text-slate-400">
-                      {form.abstractBody.length} characters (min 50)
+                      {form.abstractBody.length} characters
                     </span>
                   </div>
                   <textarea
                     id="abstractBody"
                     rows={6}
-                    className="form-input"
-                    placeholder="Structured format recommended: Background, Methods / Case Description, Results, Conclusion..."
+                    className="form-input text-xs leading-relaxed"
+                    placeholder="Type or paste your abstract paragraph here..."
                     value={form.abstractBody}
                     onChange={(e) => set("abstractBody", e.target.value)}
                     required
@@ -537,7 +539,7 @@ export function SubmitAbstract() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label" htmlFor="keywords">Keywords</label>
+                  <label className="form-label" htmlFor="keywords">11. Keywords <span className="text-slate-400 font-normal text-xs ml-1">(Please provide 3–5 keywords)</span></label>
                   <input
                     id="keywords"
                     type="text"
@@ -550,7 +552,7 @@ export function SubmitAbstract() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-3 border-t border-slate-100">
                   <div className="form-group">
-                    <label className="form-label form-label-required" htmlFor="presenterName">Designated Presenter</label>
+                    <label className="form-label form-label-required" htmlFor="presenterName">12. Name of Presenter</label>
                     <input
                       id="presenterName"
                       type="text"
@@ -563,12 +565,12 @@ export function SubmitAbstract() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label" htmlFor="supervisor">Supervisor / Faculty Guide</label>
+                    <label className="form-label" htmlFor="supervisor">15. Name of Faculty Supervisor / Mentor <span className="text-slate-400 font-normal text-xs ml-1">(If applicable)</span></label>
                     <input
                       id="supervisor"
                       type="text"
                       className="form-input"
-                      placeholder="e.g. Prof. Dr. M. Rahman"
+                      placeholder="e.g. Prof. Dr. M. Rahman (if applicable)"
                       value={form.supervisorName}
                       onChange={(e) => set("supervisorName", e.target.value)}
                     />
@@ -582,13 +584,13 @@ export function SubmitAbstract() {
           {step === 2 && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Upload Manuscript & Documents</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Accepted formats: PDF or DOCX (maximum size 100 MB).</p>
+                <h2 className="text-lg font-bold text-slate-900">Section 3 — File Submission</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Accepted format: PDF or DOCX (maximum size 10 MB).</p>
               </div>
 
               {/* Main Abstract File */}
               <div className="form-group">
-                <label className="form-label form-label-required">Abstract File (.pdf, .docx)</label>
+                <label className="form-label form-label-required">16. Upload Abstract File</label>
                 <div className="upload-zone relative">
                   <input
                     type="file"
@@ -604,7 +606,7 @@ export function SubmitAbstract() {
                       <Icons.Upload className="w-6 h-6" />
                     </div>
                     <span className="text-sm font-bold text-slate-800">
-                      {abstractFile ? abstractFile.name : "Click to select or drag manuscript file"}
+                      {abstractFile ? abstractFile.name : "Click to select or drag abstract file"}
                     </span>
                     {abstractFile ? (
                       <div className="flex items-center gap-2 mt-1">
@@ -617,7 +619,7 @@ export function SubmitAbstract() {
                       </div>
                     ) : (
                       <span className="text-xs text-slate-400">
-                        PDF or Microsoft Word (.docx) up to 100 MB
+                        PDF or Microsoft Word (.docx) up to 10 MB
                       </span>
                     )}
                   </label>
@@ -638,7 +640,7 @@ export function SubmitAbstract() {
 
               {/* Optional Presentation File */}
               <div className="form-group pt-4 border-t border-slate-100">
-                <label className="form-label">Presentation Deck or Slides (Optional)</label>
+                <label className="form-label">17. Upload Presentation/Poster <span className="text-slate-400 font-normal text-xs ml-1">(If required)</span></label>
                 <div className="upload-zone py-4 relative">
                   <input
                     type="file"

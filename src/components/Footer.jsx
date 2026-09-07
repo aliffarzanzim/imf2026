@@ -10,16 +10,13 @@ export function Footer({ onOpenAdmin, onOpenRegister, onOpenAbstract }) {
 
           {/* Col 1: Festival Identity */}
           <div className="md:col-span-2">
-            <div className="flex items-center gap-2 mb-3">
-              <Icons.Stethoscope className="w-5 h-5 text-sky-600" />
-              <div className="flex items-baseline gap-1">
-                <span className="text-base font-extrabold tracking-tight text-slate-900">
-                  IMF
-                </span>
-                <span className="text-sm font-bold text-sky-600">
-                  2026
-                </span>
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-600 to-teal-500 flex items-center justify-center text-white shadow-xs">
+                <Icons.Stethoscope className="w-4 h-4" />
               </div>
+              <span className="text-base font-extrabold tracking-tight text-slate-900">
+                IMF 2026
+              </span>
             </div>
             <p className="text-xs text-slate-500 max-w-sm leading-relaxed mb-3">
               Internal Medicine Festival 2026 — Inspiring the Future of Internal Medicine.

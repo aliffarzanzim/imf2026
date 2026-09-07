@@ -54,6 +54,8 @@ export async function sendEmail({ env, to, subject, html, text, from, replyTo })
       html,
       text: text || "",
       replyTo: reply,
+      name: "IMF 2026",
+      fromName: "IMF 2026",
     };
 
     for (let i = 0; i < scriptUrls.length; i++) {
@@ -85,7 +87,7 @@ export async function sendEmail({ env, to, subject, html, text, from, replyTo })
   // 2. Alternative safety net: Resend API (if configured)
   if (env && env.RESEND_API_KEY) {
     try {
-      const sender = from || env.EMAIL_FROM || "IMF 2026 Secretariat <onboarding@resend.dev>";
+      const sender = from || env.EMAIL_FROM || "IMF 2026 <onboarding@resend.dev>";
       const payload = {
         from: sender,
         to: Array.isArray(to) ? to : [to],
@@ -286,10 +288,69 @@ export function buildOtpEmail({ fullName, regNumber, otpCode }) {
   `.trim();
 }
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 /**
  * Generate Registration/Abstract Update Confirmation HTML Email
  */
-export function buildUpdateConfirmationEmail({ fullName, regNumber, abstractNumber, isAbstractUpdate }) {
+export function buildUpdateConfirmationEmail({ fullName, regNumber, abstractNumber, isAbstractUpdate, changes = [] }) {
+  const changesList = Array.isArray(changes) ? changes : [];
+
+  const changesHtml = changesList.length > 0 ? `
+      <!-- Changes Log Table / List -->
+      <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; margin-bottom: 24px;">
+        <div style="background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1; padding: 12px 16px; font-size: 12px; font-weight: 700; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px;">
+          Details of Changes Made (${changesList.length})
+        </div>
+        <div style="padding: 14px 16px;">
+          ${changesList.map((c) => {
+            if (typeof c === "string") {
+              return `<div style="padding: 8px 12px; margin-bottom: 8px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; color: #334155;">${escapeHtml(c)}</div>`;
+            }
+            const label = c.label || c.field || "Updated Field";
+            const before = c.before;
+            const after = c.after;
+            const details = Array.isArray(c.details) ? c.details : [];
+            const description = c.description;
+
+            return `
+            <div style="padding: 10px 14px; margin-bottom: 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px;">
+              <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">
+                ${escapeHtml(label)}
+              </div>
+              ${before !== undefined && after !== undefined ? `
+              <div style="font-size: 13px; color: #475569; line-height: 1.5;">
+                <span style="color: #dc2626; text-decoration: line-through; margin-right: 6px;">${escapeHtml(before || "(Empty)")}</span>
+                <span style="color: #16a34a; font-weight: 600;">&rarr; ${escapeHtml(after || "(Empty)")}</span>
+              </div>
+              ` : ""}
+              ${details.length > 0 ? `
+              <ul style="margin: 6px 0 0 0; padding-left: 18px; font-size: 12px; color: #334155; line-height: 1.5;">
+                ${details.map(d => `<li style="margin-bottom: 2px;">${escapeHtml(d)}</li>`).join("")}
+              </ul>
+              ` : ""}
+              ${description ? `
+              <div style="font-size: 12px; color: #64748b; margin-top: 4px;">${escapeHtml(description)}</div>
+              ` : ""}
+            </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+  ` : `
+      <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px 16px; margin-bottom: 24px; font-size: 13px; color: #64748b;">
+        Your festival registration details and abstracts have been re-verified and saved.
+      </div>
+  `;
+
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -299,32 +360,39 @@ export function buildUpdateConfirmationEmail({ fullName, regNumber, abstractNumb
   <title>IMF 2026 Profile Updated</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px;">
-  <div style="max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+  <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
     
     <div style="background: linear-gradient(135deg, #0b1c3d 0%, #173b75 100%); padding: 24px; text-align: center; color: #ffffff;">
       <h2 style="margin: 0 0 4px 0; font-size: 20px; font-weight: 700;">IMF 2026 Delegate Portal</h2>
-      <p style="margin: 0; font-size: 13px; color: #93c5fd;">Update Confirmation</p>
+      <p style="margin: 0; font-size: 13px; color: #93c5fd;">Update Confirmation &amp; Change Summary</p>
     </div>
 
     <div style="padding: 28px 24px;">
       <div style="display: inline-block; background-color: #ecfdf5; color: #047857; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; margin-bottom: 16px; border: 1px solid #a7f3d0;">
-        ✓ CHANGES SAVED
+        ✓ CHANGES SAVED SUCCESSFULLY
       </div>
 
-      <p style="color: #475569; font-size: 15px; margin: 0 0 16px 0;">
-        Dear <strong>${fullName}</strong>,
+      <p style="color: #475569; font-size: 15px; margin: 0 0 14px 0;">
+        Dear <strong>${escapeHtml(fullName)}</strong>,
       </p>
       <p style="color: #475569; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
-        Your ${isAbstractUpdate ? "scientific abstract submission" : "delegate registration details"} for Registration ID <strong>${regNumber}</strong> ${abstractNumber ? `(Abstract: ${abstractNumber})` : ""} have been successfully updated in the festival database.
+        Your ${isAbstractUpdate ? "scientific abstract submission and delegate details" : "delegate registration details"} for Registration ID <strong>${escapeHtml(regNumber)}</strong> ${abstractNumber ? `(Abstract: <strong>${escapeHtml(abstractNumber)}</strong>)` : ""} have been successfully updated in the festival database.
       </p>
 
-      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; font-size: 13px; color: #64748b; margin-bottom: 20px;">
+      ${changesHtml}
+
+      <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; font-size: 13px; color: #1e40af; line-height: 1.5;">
+        <strong>Need further adjustments?</strong><br>
+        You can return to the IMF 2026 website anytime and click <em>"Already Registered?"</em> to review or update your registration details.
+      </div>
+
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; font-size: 12px; color: #64748b; margin-bottom: 20px;">
         Timestamp: <strong>${new Date().toLocaleString()}</strong><br>
-        Status: <strong>Active & Confirmed</strong>
+        Status: <strong>Active &amp; Confirmed</strong>
       </div>
 
       <p style="color: #94a3b8; font-size: 12px; margin: 0; line-height: 1.5;">
-        If you did not make these changes, please contact the festival organizers immediately at dmcimig@gmail.com.
+        If you did not make these changes, please contact the organizers.
       </p>
     </div>
 

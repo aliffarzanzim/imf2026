@@ -80,6 +80,16 @@ export function RegisterModal({ onClose }) {
     }));
   }
 
+  const allActivitiesSelected =
+    ACTIVITIES.length > 0 && ACTIVITIES.every((act) => form.activities.includes(act));
+
+  function toggleAllActivities() {
+    setForm((f) => ({
+      ...f,
+      activities: allActivitiesSelected ? [] : [...ACTIVITIES],
+    }));
+  }
+
   function validateStep() {
     if (step === 0) {
       if (!form.fullName.trim())    return "Full name is required.";
@@ -245,9 +255,18 @@ export function RegisterModal({ onClose }) {
               <SectionDivider title="Section 2 — Participation" />
 
               <div className="form-group">
-                <label className="form-label form-label-required">
-                  Which activities would you like to participate in?
-                </label>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label className="form-label form-label-required mb-0">
+                    Which activities would you like to participate in?
+                  </label>
+                  <button
+                    type="button"
+                    onClick={toggleAllActivities}
+                    className="text-xs font-semibold text-[var(--color-primary)] hover:underline cursor-pointer"
+                  >
+                    {allActivitiesSelected ? "Deselect All" : "Select All"}
+                  </button>
+                </div>
                 <p className="form-hint mb-2">Select all that apply.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {ACTIVITIES.map((act) => (
@@ -283,8 +302,8 @@ export function RegisterModal({ onClose }) {
               <SectionDivider title="Section 3 — Additional Information" />
 
               <div className="form-group">
-                <label className="form-label form-label-required">
-                  Have you previously participated in any academic competition / conference?
+                <label className="form-label">
+                  9. Have you previously participated in any academic competition/conference?
                 </label>
                 <div className="flex gap-3 mt-2">
                   {["Yes", "No"].map((opt) => (
@@ -298,9 +317,9 @@ export function RegisterModal({ onClose }) {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Any questions or special requirements?</label>
+                <label className="form-label">10. Any questions or special requirements?</label>
                 <textarea id="reg-queries" className="form-textarea" rows={4}
-                  placeholder="Optional — write any questions or special needs here."
+                  placeholder="Optional"
                   value={form.queries} onChange={(e) => set("queries", e.target.value)} />
                 <span className="form-hint">Optional</span>
               </div>

@@ -34,45 +34,88 @@ export async function onRequestPost(context) {
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(data.email.trim())) {
+    const cleanEmail = data.email.trim().toLowerCase();
+    if (!emailRegex.test(cleanEmail)) {
       return new Response(
         JSON.stringify({ error: "Invalid email address format" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // Abstract validation if user opted into submitting an abstract
+    // Unique email check: strictly one user per email
+    const existingUser = await env.DB.prepare(
+      "SELECT reg_number FROM registrations WHERE LOWER(TRIM(email)) = ? LIMIT 1"
+    ).bind(cleanEmail).first();
+
+    if (existingUser) {
+      return new Response(
+        JSON.stringify({
+          error: `This email is already registered (${existingUser.reg_number}). Please use the already registered tab.`,
+          code: "EMAIL_ALREADY_REGISTERED",
+          regNumber: existingUser.reg_number,
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Abstract validation if user opted into submitting abstracts
     const hasAbstract = Boolean(data.hasAbstract || data.submitAbstract);
-    if (hasAbstract) {
-      if (!data.abstractTitle || !data.abstractTitle.trim()) {
-        return new Response(
-          JSON.stringify({ error: "Abstract title is required when submitting an abstract." }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
-        );
-      }
-      if (!data.submissionType || !data.submissionType.trim()) {
-        return new Response(
-          JSON.stringify({ error: "Please select a submission type for your abstract." }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
-        );
-      }
-      if (!data.presentationCategory || !data.presentationCategory.trim()) {
-        return new Response(
-          JSON.stringify({ error: "Please select a presentation preference (Oral / Poster)." }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
-        );
-      }
-      if (!data.abstractBody || data.abstractBody.trim().length < 50) {
-        return new Response(
-          JSON.stringify({ error: "Abstract body must be at least 50 characters." }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
-        );
-      }
-      if (!data.r2FileKey || !data.fileName) {
-        return new Response(
-          JSON.stringify({ error: "Please upload your abstract manuscript document (PDF or DOCX)." }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
-        );
+    let rawAbstracts = [];
+    if (Array.isArray(data.abstracts) && data.abstracts.length > 0) {
+      rawAbstracts = data.abstracts;
+    } else if (hasAbstract && data.abstractTitle) {
+      rawAbstracts = [{
+        title: data.abstractTitle,
+        submissionType: data.submissionType,
+        presentationCategory: data.presentationCategory,
+        abstractBody: data.abstractBody,
+        keywords: data.keywords,
+        presenterName: data.presenterName,
+        coAuthors: data.coAuthors,
+        authorAffiliation: data.authorAffiliation,
+        supervisorName: data.supervisorName,
+        r2FileKey: data.r2FileKey,
+        fileName: data.fileName,
+        fileSize: data.fileSize,
+        presentationFileKey: data.presentationFileKey,
+        presentationFileName: data.presentationFileName,
+      }];
+    }
+
+    if (hasAbstract && rawAbstracts.length > 0) {
+      for (let i = 0; i < rawAbstracts.length; i++) {
+        const item = rawAbstracts[i];
+        const num = rawAbstracts.length > 1 ? ` (Abstract #${i + 1})` : "";
+        if (!item.title || !item.title.trim()) {
+          return new Response(
+            JSON.stringify({ error: `Title of the Abstract is required${num}.` }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (!item.submissionType || !item.submissionType.trim()) {
+          return new Response(
+            JSON.stringify({ error: `Please select a submission type${num}.` }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (!item.presentationCategory || !item.presentationCategory.trim()) {
+          return new Response(
+            JSON.stringify({ error: `Please select a presentation category${num}.` }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (!item.abstractBody || !item.abstractBody.trim()) {
+          return new Response(
+            JSON.stringify({ error: `Abstract text is required${num}.` }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (!item.r2FileKey || !item.fileName) {
+          return new Response(
+            JSON.stringify({ error: `Please upload your abstract file (PDF or DOCX)${num}.` }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
       }
     }
 
@@ -96,52 +139,59 @@ export async function onRequestPost(context) {
       data.phone.trim(),
       data.email.trim().toLowerCase(),
       JSON.stringify(data.activities || []),
-      data.competitionCategory ? String(data.competitionCategory).trim() : null,
+      Array.isArray(data.competitionCategory)
+        ? data.competitionCategory.join(", ")
+        : (data.competitionCategory ? String(data.competitionCategory).trim() : null),
       data.priorExperience ? String(data.priorExperience).trim() : null,
       data.queries ? String(data.queries).trim() : null
     ).run();
 
-    let abstractNumber = null;
+    const createdAbstractNumbers = [];
 
-    // If abstract was included, insert into abstracts table using registration info directly
-    if (hasAbstract) {
-      const maxAbsRow = await env.DB.prepare("SELECT MAX(id) as maxId FROM abstracts").first();
-      const nextAbsSeq = ((maxAbsRow && maxAbsRow.maxId) || 0) + 1;
-      abstractNumber = `IMF-ABS-${String(nextAbsSeq).padStart(4, "0")}`;
+    // If abstracts were included, insert each into abstracts table
+    if (hasAbstract && rawAbstracts.length > 0) {
+      for (const item of rawAbstracts) {
+        const maxAbsRow = await env.DB.prepare("SELECT MAX(id) as maxId FROM abstracts").first();
+        const nextAbsSeq = ((maxAbsRow && maxAbsRow.maxId) || 0) + 1;
+        const currentAbsNumber = `IMF-ABS-${String(nextAbsSeq).padStart(4, "0")}`;
+        createdAbstractNumbers.push(currentAbsNumber);
 
-      await env.DB.prepare(`
-        INSERT INTO abstracts (
-          abstract_number, reg_number, full_name, institution, batch, academic_year,
-          phone, email, title, submission_type, presentation_category,
-          abstract_body, keywords, presenter_name, co_authors,
-          author_affiliation, supervisor_name, r2_file_key, file_name,
-          file_size, presentation_file_key, presentation_file_name
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        abstractNumber,
-        regNumber,
-        data.fullName.trim(),
-        data.institution.trim(),
-        data.batch.trim(),
-        data.academicYear.trim(),
-        data.phone.trim(),
-        data.email.trim().toLowerCase(),
-        data.abstractTitle.trim(),
-        data.submissionType.trim(),
-        data.presentationCategory.trim(),
-        data.abstractBody.trim(),
-        data.keywords ? String(data.keywords).trim() : null,
-        (data.presenterName && data.presenterName.trim()) || data.fullName.trim(),
-        data.coAuthors ? String(data.coAuthors).trim() : null,
-        data.authorAffiliation ? String(data.authorAffiliation).trim() : data.institution.trim(),
-        data.supervisorName ? String(data.supervisorName).trim() : null,
-        data.r2FileKey.trim(),
-        data.fileName.trim(),
-        Number(data.fileSize) || 0,
-        data.presentationFileKey ? String(data.presentationFileKey).trim() : null,
-        data.presentationFileName ? String(data.presentationFileName).trim() : null
-      ).run();
+        await env.DB.prepare(`
+          INSERT INTO abstracts (
+            abstract_number, reg_number, full_name, institution, batch, academic_year,
+            phone, email, title, submission_type, presentation_category,
+            abstract_body, keywords, presenter_name, co_authors,
+            author_affiliation, supervisor_name, r2_file_key, file_name,
+            file_size, presentation_file_key, presentation_file_name
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          currentAbsNumber,
+          regNumber,
+          data.fullName.trim(),
+          data.institution.trim(),
+          data.batch.trim(),
+          data.academicYear.trim(),
+          data.phone.trim(),
+          data.email.trim().toLowerCase(),
+          item.title.trim(),
+          item.submissionType.trim(),
+          item.presentationCategory.trim(),
+          item.abstractBody.trim(),
+          item.keywords ? String(item.keywords).trim() : null,
+          (item.presenterName && item.presenterName.trim()) || data.fullName.trim(),
+          item.coAuthors ? String(item.coAuthors).trim() : null,
+          item.authorAffiliation ? String(item.authorAffiliation).trim() : null,
+          item.supervisorName ? String(item.supervisorName).trim() : null,
+          item.r2FileKey.trim(),
+          item.fileName.trim(),
+          Number(item.fileSize) || 0,
+          item.presentationFileKey ? String(item.presentationFileKey).trim() : null,
+          item.presentationFileName ? String(item.presentationFileName).trim() : null
+        ).run();
+      }
     }
+
+    const abstractNumber = createdAbstractNumbers.join(", ") || null;
 
     // Send registration confirmation email via Resend (non-blocking)
     try {
@@ -177,6 +227,7 @@ export async function onRequestPost(context) {
         success: true,
         regNumber,
         abstractNumber,
+        abstractNumbers: createdAbstractNumbers,
         hasAbstract,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }
