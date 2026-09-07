@@ -5,8 +5,9 @@ import { Icons } from "../assets/icons";
 const ORGANIZERS = [
   { name: "DMC IMIG", role: "Dhaka Medical College" },
   { name: "ACP Bangladesh Chapter", role: "American College of Physicians" },
-  { name: "Bangladesh Society of Medicine", role: "BSM" },
+  { name: "BSM", role: "Bangladesh Society of Medicine" },
 ];
+
 
 const ACTIVITIES = [
   {
@@ -70,7 +71,7 @@ export function Hero({ onOpenRegister, onOpenAbstract }) {
   }, []);
 
   return (
-    <section className="relative pt-20 pb-16 sm:pt-28 sm:pb-24 overflow-hidden">
+    <section className="relative pt-16 pb-6 sm:pt-20 sm:pb-8 overflow-hidden">
       {/* Background ambient lighting */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-tr from-sky-400/15 to-teal-300/15 rounded-full blur-3xl pointer-events-none -z-10" />
 
@@ -196,10 +197,11 @@ export function Hero({ onOpenRegister, onOpenAbstract }) {
         </div>
 
         {/* ── Institutional Endorsements ── */}
-        <div className="mt-20 pt-10 border-t border-slate-200/80 w-full max-w-4xl">
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-6">
+        <div className="mt-12 pt-6 border-t border-slate-200/80 w-full max-w-4xl">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-5">
             Under the Distinguished Auspices of
           </p>
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {ORGANIZERS.map((org, i) => (
               <div

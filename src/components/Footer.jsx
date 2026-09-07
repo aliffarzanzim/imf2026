@@ -4,9 +4,9 @@ import { Icons } from "../assets/icons";
 
 export function Footer({ onOpenAdmin, onOpenRegister, onOpenAbstract }) {
   return (
-    <footer className="border-t border-slate-200 bg-white/95 mt-20 text-slate-600 text-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+    <footer className="border-t border-slate-200 bg-white/95 mt-4 sm:mt-8 text-slate-600 text-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-6 sm:py-10">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8 sm:mb-10">
 
           {/* Col 1: Festival Identity */}
           <div className="md:col-span-2">
@@ -18,7 +18,7 @@ export function Footer({ onOpenAdmin, onOpenRegister, onOpenAbstract }) {
                 IMF 2026
               </span>
             </div>
-            <p className="text-xs text-slate-500 max-w-sm leading-relaxed mb-4">
+            <p className="text-xs text-slate-500 max-w-sm leading-relaxed mb-3">
               Internal Medicine Festival 2026 — Inspiring the Future of Internal Medicine.
               A premier medical conference for medical students across Bangladesh.
             </p>
@@ -73,24 +73,25 @@ export function Footer({ onOpenAdmin, onOpenRegister, onOpenAbstract }) {
           </div>
         </div>
 
-        {/* Bottom Credits Strip */}
-        <div className="pt-8 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+        {/* Bottom Credits Strip — Fully Responsive on Smartphone & Desktop */}
+        <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
           
-          {/* Maintained By credit (Requested by User) */}
-          <div className="flex items-center gap-1.5 text-slate-600">
-            <span className="w-2 h-2 rounded-full bg-teal-500" />
+          {/* Maintained By: Alif Farzan Zim FIRST, then Aiman Talukder */}
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-1.5 gap-y-1 text-slate-600 text-center sm:text-left leading-relaxed">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block flex-shrink-0 mr-0.5" />
             <span>Maintained by</span>
-            <strong className="text-slate-800 font-semibold">Aiman Talukder (DMC K-79)</strong>
-            <span>&</span>
-            <strong className="text-slate-800 font-semibold">Alif Farzan Zim (DMC K-79)</strong>
+            <strong className="text-slate-900 font-bold whitespace-nowrap">Alif Farzan Zim (DMC K-79)</strong>
+            <span className="text-slate-400">&amp;</span>
+            <strong className="text-slate-900 font-bold whitespace-nowrap">Aiman Talukder (DMC K-79)</strong>
           </div>
 
           {/* Copyright & Discreet Admin Access */}
-          <div className="flex items-center gap-4 text-slate-400">
+          <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-2 sm:gap-4 text-slate-400 text-center">
             <span>© 2026 Internal Medicine Festival. All rights reserved.</span>
+            <span className="hidden sm:inline text-slate-300">•</span>
             <button
               onClick={onOpenAdmin}
-              className="text-slate-400 hover:text-slate-700 text-[11px] underline underline-offset-2 transition-colors"
+              className="text-slate-500 hover:text-slate-800 text-xs underline underline-offset-2 transition-colors whitespace-nowrap"
             >
               Admin Portal
             </button>
@@ -101,3 +102,4 @@ export function Footer({ onOpenAdmin, onOpenRegister, onOpenAbstract }) {
     </footer>
   );
 }
+
