@@ -16,6 +16,50 @@ import { MedicalCollegeInput } from "./MedicalCollegeInput";
 
 const BATCHES = ["K-79", "K-80", "K-81", "K-82", "K-83", "Other"];
 
+const TOTAL_ACTIVITIES = 9;
+const TOTAL_COMPETITIONS = 6;
+
+function parseActivities(act) {
+  if (!act) return [];
+  if (Array.isArray(act)) return act.filter(Boolean);
+  if (typeof act === "string") {
+    const trimmed = act.trim();
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.filter(Boolean);
+      } catch (_) {}
+    }
+    return trimmed.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function parseCompetitions(comp) {
+  if (!comp) return [];
+  let list = [];
+  if (Array.isArray(comp)) {
+    list = comp;
+  } else if (typeof comp === "string") {
+    const trimmed = comp.trim();
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) list = parsed;
+      } catch (_) {}
+    }
+    if (list.length === 0) {
+      list = trimmed.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+  return list.filter(
+    (c) =>
+      c &&
+      !c.toLowerCase().includes("not participating") &&
+      !c.toLowerCase().includes("attendee only")
+  );
+}
+
 const BATCH_COLORS = {
   "K-79": "bg-indigo-50 text-indigo-700 border-indigo-200",
   "K-80": "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -589,6 +633,7 @@ export function AdminTable() {
         (r.reg_number || "").toLowerCase().includes(q) ||
         (r.email || "").toLowerCase().includes(q) ||
         (r.phone || "").toLowerCase().includes(q) ||
+        (r.competition_category || "").toLowerCase().includes(q) ||
         absTitles.includes(q) ||
         absNumbers.includes(q);
 
@@ -868,13 +913,14 @@ export function AdminTable() {
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Official ID</th>
+                    <th>ID</th>
                     <th>Delegate</th>
-                    <th>Medical College</th>
+                    <th>College</th>
                     <th>Batch</th>
                     <th>Year</th>
                     <th>Contact</th>
-                    <th>Activities</th>
+                    <th className="text-center">Activities</th>
+                    <th className="text-center">Competitions</th>
                     <th className="text-center">Abstracts</th>
                     <th>Date</th>
                     <th className="text-right pr-6">Actions</th>
@@ -884,6 +930,8 @@ export function AdminTable() {
                   {filtered.map((r, i) => {
                     const userAbs = getAbstractsForDelegate(r);
                     const absCount = userAbs.length;
+                    const actList = parseActivities(r.activities);
+                    const compList = parseCompetitions(r.competition_category);
 
                     return (
                       <tr key={r.id}>
@@ -915,8 +963,32 @@ export function AdminTable() {
                         <td className="text-xs text-slate-600 whitespace-nowrap">{r.academic_year}</td>
                         <td className="text-xs font-mono text-slate-600 whitespace-nowrap">{r.phone}</td>
                         
-                        <td className="text-xs text-slate-600 max-w-[160px] truncate">
-                          {Array.isArray(r.activities) ? r.activities.join(", ") : r.activities || "—"}
+                        {/* Activities Count Column */}
+                        <td className="text-center whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold font-mono ${
+                              actList.length > 0
+                                ? "bg-sky-50 text-sky-700 border border-sky-200"
+                                : "bg-slate-100 text-slate-400 border border-slate-200/60"
+                            }`}
+                            title={actList.length > 0 ? actList.join(", ") : "No activities selected"}
+                          >
+                            {actList.length}/{TOTAL_ACTIVITIES}
+                          </span>
+                        </td>
+
+                        {/* Competitions Count Column */}
+                        <td className="text-center whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold font-mono ${
+                              compList.length > 0
+                                ? "bg-amber-50 text-amber-800 border border-amber-200"
+                                : "bg-slate-100 text-slate-400 border border-slate-200/60"
+                            }`}
+                            title={compList.length > 0 ? compList.join(", ") : "Not participating in competitions"}
+                          >
+                            {compList.length}/{TOTAL_COMPETITIONS}
+                          </span>
                         </td>
 
                         {/* Abstracts Count Column */}
@@ -993,6 +1065,8 @@ export function AdminTable() {
               {filtered.map((r) => {
                 const userAbs = getAbstractsForDelegate(r);
                 const absCount = userAbs.length;
+                const actList = parseActivities(r.activities);
+                const compList = parseCompetitions(r.competition_category);
 
                 return (
                   <div key={r.id} className="p-4 space-y-3">
@@ -1015,12 +1089,24 @@ export function AdminTable() {
 
                     <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-1">
                       <div>
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400 block">Institution</span>
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400 block">College</span>
                         <span className="font-medium text-slate-800">{r.institution}</span>
                       </div>
                       <div>
                         <span className="text-[10px] uppercase tracking-wider text-slate-400 block">Batch & Year</span>
                         <span className="font-medium text-slate-800">{r.batch} • {r.academic_year}</span>
+                      </div>
+                    </div>
+
+                    {/* Participation (Activities & Competitions) */}
+                    <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                      <div>
+                        <span className="text-slate-500 font-medium block">Activities:</span>
+                        <span className="font-bold text-sky-700 font-mono text-xs">{actList.length}/{TOTAL_ACTIVITIES}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-medium block">Competitions:</span>
+                        <span className="font-bold text-amber-700 font-mono text-xs">{compList.length}/{TOTAL_COMPETITIONS}</span>
                       </div>
                     </div>
 
