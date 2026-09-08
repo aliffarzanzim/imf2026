@@ -15,7 +15,7 @@ import {
 } from "../utils/export";
 import { MedicalCollegeInput } from "./MedicalCollegeInput";
 
-const BATCHES = ["K-79", "K-80", "K-81", "K-82", "K-83", "Other"];
+const BATCHES = ["K-78", "K-79", "K-80", "K-81", "K-82", "K-83", "Other"];
 
 const TOTAL_ACTIVITIES = 9;
 const TOTAL_COMPETITIONS = 6;
@@ -66,6 +66,7 @@ function parseCompetitions(comp) {
 }
 
 const BATCH_COLORS = {
+  "K-78": "bg-rose-50 text-rose-700 border-rose-200",
   "K-79": "bg-indigo-50 text-indigo-700 border-indigo-200",
   "K-80": "bg-emerald-50 text-emerald-700 border-emerald-200",
   "K-81": "bg-sky-50 text-sky-700 border-sky-200",
@@ -797,7 +798,7 @@ export function AdminTable() {
               const pct = (count / data.registrations.length) * 100;
               if (pct === 0) return null;
               const bgColors = [
-                "bg-indigo-500", "bg-emerald-500", "bg-sky-500",
+                "bg-rose-500", "bg-indigo-500", "bg-emerald-500", "bg-sky-500",
                 "bg-amber-500", "bg-purple-500", "bg-slate-400"
               ];
               return (

@@ -15,7 +15,7 @@ import { SuccessCard } from "../components/SuccessCard";
 import { MedicalCollegeInput } from "../components/MedicalCollegeInput";
 import { navigate } from "../utils/navigation";
 
-const BATCHES = ["K-79", "K-80", "K-81", "K-82", "K-83", "Other"];
+const BATCHES = ["K-78", "K-79", "K-80", "K-81", "K-82", "K-83", "Other"];
 const YEARS   = ["1st Year", "2nd Year", "3rd Year", "4th Year", "Final Year"];
 
 const ACTIVITIES = [

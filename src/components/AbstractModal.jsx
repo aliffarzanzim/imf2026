@@ -4,7 +4,7 @@ import { Icons } from "../assets/icons";
 import { getUploadUrl, uploadFileToR2, submitAbstract } from "../utils/api";
 import { SuccessCard } from "./SuccessCard";
 
-const BATCHES = ["K-79", "K-80", "K-81", "K-82", "K-83", "Other"];
+const BATCHES = ["K-78", "K-79", "K-80", "K-81", "K-82", "K-83", "Other"];
 const YEARS   = ["1st Year", "2nd Year", "3rd Year", "4th Year", "Final Year"];
 
 const SUBMISSION_TYPES = [
