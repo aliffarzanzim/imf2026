@@ -183,31 +183,31 @@ export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
           </p>
 
           {/* ── Live Festival Milestone Cards (Smooth Decelerating Animation) ── */}
-          <div className="mt-5 sm:mt-6 grid grid-cols-2 gap-3 sm:gap-4 w-full max-w-xs sm:max-w-sm mx-auto">
+          <div className="mt-5 sm:mt-6 grid grid-cols-2 gap-3 sm:gap-5 w-full max-w-xs sm:max-w-lg md:max-w-xl mx-auto">
             {/* Card 1: Total Registration */}
-            <div className="group relative flex flex-col items-center justify-center p-3 sm:p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-xs hover:shadow-md hover:border-sky-300 transition-all duration-300">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 mb-1 sm:mb-1.5 group-hover:scale-110 transition-transform">
-                <Icons.Users className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+            <div className="group relative flex flex-col items-center justify-center p-3 sm:py-4.5 sm:px-6 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-xs hover:shadow-md hover:border-sky-300 transition-all duration-300">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 mb-1.5 sm:mb-2 group-hover:scale-110 transition-transform">
+                <Icons.Users className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-baseline">
+              <div className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight flex items-baseline">
                 <span>{animatedRegistrations.toLocaleString()}</span>
-                <span className="text-sky-600 font-extrabold text-base sm:text-xl ml-0.5">+</span>
+                <span className="text-sky-600 font-extrabold text-base sm:text-2xl ml-0.5">+</span>
               </div>
-              <span className="text-[11px] sm:text-xs font-bold text-slate-600 tracking-tight text-center mt-0.5">
+              <span className="text-[11px] sm:text-sm font-semibold text-slate-600 tracking-tight text-center mt-0.5">
                 Total Registration
               </span>
             </div>
 
             {/* Card 2: Medical Colleges */}
-            <div className="group relative flex flex-col items-center justify-center p-3 sm:p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-xs hover:shadow-md hover:border-teal-300 transition-all duration-300">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 mb-1 sm:mb-1.5 group-hover:scale-110 transition-transform">
-                <Icons.Institution className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+            <div className="group relative flex flex-col items-center justify-center p-3 sm:py-4.5 sm:px-6 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-xs hover:shadow-md hover:border-teal-300 transition-all duration-300">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 mb-1.5 sm:mb-2 group-hover:scale-110 transition-transform">
+                <Icons.Institution className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-baseline">
+              <div className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight flex items-baseline">
                 <span>{animatedColleges.toLocaleString()}</span>
-                <span className="text-teal-600 font-extrabold text-base sm:text-xl ml-0.5">+</span>
+                <span className="text-teal-600 font-extrabold text-base sm:text-2xl ml-0.5">+</span>
               </div>
-              <span className="text-[11px] sm:text-xs font-bold text-slate-600 tracking-tight text-center mt-0.5">
+              <span className="text-[11px] sm:text-sm font-semibold text-slate-600 tracking-tight text-center mt-0.5">
                 Medical Colleges
               </span>
             </div>
