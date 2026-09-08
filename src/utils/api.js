@@ -233,3 +233,8 @@ export async function updateAdminConfig(toggles) {
   });
 }
 
+// ── Public Statistics & Milestones ─────────────────────────────
+export async function getFestivalStats() {
+  return request("/api/stats");
+}
+

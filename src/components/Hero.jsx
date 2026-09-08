@@ -1,7 +1,6 @@
-// src/components/Hero.jsx
 import React, { useState, useEffect } from "react";
 import { Icons } from "../assets/icons";
-import { getSystemConfig } from "../utils/api";
+import { getSystemConfig, getFestivalStats } from "../utils/api";
 import imigLogo from "../assets/logos/imig.jpg";
 import acpLogo from "../assets/logos/acp.jpg";
 import bsmLogo from "../assets/logos/bsm.jpg";
@@ -82,10 +81,61 @@ function getInitialCountdown() {
   };
 }
 
+// Smooth non-uniform count-up hook (ease-out quartic for silky-smooth deceleration)
+function useSmoothCount(targetValue, duration = 2000) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (!targetValue || targetValue <= 0) return;
+
+    let startTimestamp = null;
+    let frameId;
+
+    // Ease-out quartic: starts rapidly, then softly decelerates into the final number
+    const easeOutQuart = (x) => 1 - Math.pow(1 - x, 4);
+
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const elapsed = timestamp - startTimestamp;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeOutQuart(progress);
+      setCount(Math.round(eased * targetValue));
+
+      if (progress < 1) {
+        frameId = requestAnimationFrame(step);
+      } else {
+        setCount(targetValue);
+      }
+    };
+
+    frameId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frameId);
+  }, [targetValue, duration]);
+
+  return count;
+}
+
 export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
   // Synchronous countdown to eliminate initial render flicker / layout shift
   const [timeLeft, setTimeLeft] = useState(getInitialCountdown);
   const [config, setConfig] = useState({ registration_open: true, abstract_edit_open: true });
+  const [stats, setStats] = useState({ totalRegistrations: 615, totalColleges: 34 });
+
+  useEffect(() => {
+    getFestivalStats()
+      .then((data) => {
+        if (data && typeof data.totalRegistrations === "number") {
+          setStats({
+            totalRegistrations: data.totalRegistrations,
+            totalColleges: data.totalColleges || 34,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const animatedRegistrations = useSmoothCount(stats.totalRegistrations, 2200);
+  const animatedColleges = useSmoothCount(stats.totalColleges, 1800);
 
   useEffect(() => {
     getSystemConfig()
@@ -196,10 +246,41 @@ export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
             )}
           </div>
 
+          {/* ── Live Festival Milestone Cards (Smooth Decelerating Animation) ── */}
+          <div className="mt-7 sm:mt-8 grid grid-cols-2 gap-3 sm:gap-5 w-full max-w-xs sm:max-w-sm mx-auto">
+            {/* Card 1: Total Registration */}
+            <div className="group relative flex flex-col items-center justify-center p-3.5 sm:p-4.5 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-xs hover:shadow-md hover:border-sky-300 transition-all duration-300">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 mb-1.5 sm:mb-2 group-hover:scale-110 transition-transform">
+                <Icons.Users className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-baseline">
+                <span>{animatedRegistrations.toLocaleString()}</span>
+                <span className="text-sky-600 font-extrabold text-base sm:text-xl ml-0.5">+</span>
+              </div>
+              <span className="text-[11px] sm:text-xs font-bold text-slate-600 tracking-tight text-center mt-0.5">
+                Total Registration
+              </span>
+            </div>
+
+            {/* Card 2: Medical Colleges */}
+            <div className="group relative flex flex-col items-center justify-center p-3.5 sm:p-4.5 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-xs hover:shadow-md hover:border-teal-300 transition-all duration-300">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 mb-1.5 sm:mb-2 group-hover:scale-110 transition-transform">
+                <Icons.Institution className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-baseline">
+                <span>{animatedColleges.toLocaleString()}</span>
+                <span className="text-teal-600 font-extrabold text-base sm:text-xl ml-0.5">+</span>
+              </div>
+              <span className="text-[11px] sm:text-xs font-bold text-slate-600 tracking-tight text-center mt-0.5">
+                Medical Colleges
+              </span>
+            </div>
+          </div>
+
           {/* Scroll Cue to Activities */}
           <a
             href="#activities"
-            className="mt-8 sm:mt-10 inline-flex flex-col items-center gap-1.5 text-slate-400 hover:text-slate-600 transition-colors group cursor-pointer"
+            className="mt-6 sm:mt-8 inline-flex flex-col items-center gap-1.5 text-slate-400 hover:text-slate-600 transition-colors group cursor-pointer"
           >
             <span className="text-[11px] font-medium tracking-wide">Explore Festival Program</span>
             <div className="animate-bounce mt-0.5">
