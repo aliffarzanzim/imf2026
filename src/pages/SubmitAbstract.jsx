@@ -1,9 +1,9 @@
 // src/pages/SubmitAbstract.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 import { Icons } from "../assets/icons";
-import { getUploadUrl, uploadFileToR2, submitAbstract } from "../utils/api";
+import { getUploadUrl, uploadFileToR2, submitAbstract, getSystemConfig } from "../utils/api";
 import { SuccessCard } from "../components/SuccessCard";
 import { navigate } from "../utils/navigation";
 
@@ -34,12 +34,23 @@ const STEPS = [
 ];
 
 export function SubmitAbstract() {
+  const [config, setConfig] = useState({ abstract_edit_open: true });
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [absNumber, setAbsNumber] = useState(null);
   const [progress, setProgress] = useState(0);
   const [uploadStage, setUploadStage] = useState("");
+
+  useEffect(() => {
+    async function loadConfig() {
+      try {
+        const c = await getSystemConfig();
+        setConfig(c);
+      } catch (_) {}
+    }
+    loadConfig();
+  }, []);
 
   const [form, setForm] = useState({
     fullName:             "",
@@ -221,6 +232,46 @@ export function SubmitAbstract() {
           onOpenRegister={() => navigate("/register")}
           onOpenAbstract={() => { setAbsNumber(null); setStep(0); }}
         />
+      </div>
+    );
+  }
+
+  if (config.abstract_edit_open === false) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] flex flex-col">
+        <Header onHome={() => navigate("/")} onOpenAdmin={() => navigate("/admin")} />
+        <main className="flex-1 max-w-2xl mx-auto w-full pt-28 pb-16 px-4">
+          <div className="card p-8 sm:p-12 text-center bg-white border border-slate-200 shadow-elevated rounded-3xl space-y-6 animate-fade-in">
+            <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-sm">
+              <Icons.Lock className="w-8 h-8" />
+            </div>
+            <div className="max-w-md mx-auto space-y-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                Submissions Closed
+              </span>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight pt-1">
+                Abstract Submissions are Closed
+              </h2>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                The scientific abstract submission portal has been closed by the festival committee.
+              </p>
+            </div>
+            <div className="pt-6 border-t border-slate-100 max-w-sm mx-auto space-y-3">
+              <p className="text-xs text-slate-500 font-medium">
+                Already submitted or registered? Check your submission status anytime:
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/register?mode=manage")}
+                className="w-full btn-primary py-3 text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+              >
+                <Icons.Badge className="w-4 h-4" />
+                <span>Open Delegate &amp; Abstract Portal</span>
+              </button>
+            </div>
+          </div>
+        </main>
+        <Footer onOpenAdmin={() => navigate("/admin")} onOpenRegister={() => navigate("/register")} onOpenAbstract={() => navigate("/abstract")} />
       </div>
     );
   }

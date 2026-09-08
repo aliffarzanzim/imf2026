@@ -834,47 +834,50 @@ export function AdminTable({ onDataLoaded }) {
       )}
 
       {/* ── Toolbar: Merged Filters, Search, Batch Filter & Exports ── */}
-      <div className="card p-4 sm:p-5 bg-white border border-slate-200/80 flex flex-col gap-4">
+      <div className="card p-3.5 sm:p-5 bg-white border border-slate-200/80 flex flex-col gap-4 overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
           
-          {/* Left: Filter Buttons */}
-          <div className="flex p-1 bg-slate-100 rounded-xl w-full sm:w-auto">
+          {/* Left: Filter Buttons (Responsive grid on mobile, flex on sm+) */}
+          <div className="grid grid-cols-3 sm:flex p-1 bg-slate-100 rounded-xl w-full sm:w-auto gap-1">
             <button
               onClick={() => setFilterType("all")}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
                 filterType === "all"
                   ? "bg-white text-sky-700 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <span>All Delegates</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-slate-200/70 text-[10px] text-slate-700 font-extrabold">
+              <span className="hidden md:inline">All Delegates</span>
+              <span className="md:hidden">All</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-slate-200/70 text-[10px] text-slate-700 font-extrabold font-mono">
                 {(data.registrations || []).length}
               </span>
             </button>
             <button
               onClick={() => setFilterType("with_abstracts")}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
                 filterType === "with_abstracts"
                   ? "bg-white text-teal-700 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <span>With Abstracts</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-teal-100 text-[10px] text-teal-800 font-extrabold">
+              <span className="hidden md:inline">With Abstracts</span>
+              <span className="md:hidden">Abstracts</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-teal-100 text-[10px] text-teal-800 font-extrabold font-mono">
                 {delegatesWithAbstractsCount}
               </span>
             </button>
             <button
               onClick={() => setFilterType("no_abstracts")}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
                 filterType === "no_abstracts"
                   ? "bg-white text-slate-800 shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <span>No Abstracts</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-slate-200/70 text-[10px] text-slate-700 font-extrabold">
+              <span className="hidden md:inline">No Abstracts</span>
+              <span className="md:hidden">None</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-slate-200/70 text-[10px] text-slate-700 font-extrabold font-mono">
                 {(data.registrations || []).length - delegatesWithAbstractsCount}
               </span>
             </button>
@@ -1148,30 +1151,30 @@ export function AdminTable({ onDataLoaded }) {
                 return (
                   <div key={r.id} className="p-4 space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 to-teal-500 text-white text-xs font-black flex items-center justify-center flex-shrink-0">
                           {(r.full_name || "?").charAt(0).toUpperCase()}
                         </div>
-                        <div>
-                          <div className="text-sm font-bold text-slate-900 leading-tight">
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold text-slate-900 leading-tight truncate">
                             {r.full_name}
                           </div>
-                          <div className="text-[11px] text-slate-400">{r.email}</div>
+                          <div className="text-[11px] text-slate-400 truncate">{r.email}</div>
                         </div>
                       </div>
-                      <span className="font-mono text-xs font-black text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                      <span className="font-mono text-xs font-black text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200 flex-shrink-0 whitespace-nowrap">
                         {r.reg_number}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-1">
-                      <div>
+                      <div className="min-w-0">
                         <span className="text-[10px] uppercase tracking-wider text-slate-400 block">College</span>
-                        <span className="font-medium text-slate-800">{r.institution}</span>
+                        <span className="font-medium text-slate-800 break-words line-clamp-2">{r.institution}</span>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <span className="text-[10px] uppercase tracking-wider text-slate-400 block">Batch & Year</span>
-                        <span className="font-medium text-slate-800">{r.batch} • {r.academic_year}</span>
+                        <span className="font-medium text-slate-800 break-words">{r.batch} • {r.academic_year}</span>
                       </div>
                     </div>
 
@@ -1204,16 +1207,16 @@ export function AdminTable({ onDataLoaded }) {
                     </div>
 
                     {/* Mobile Action Buttons */}
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                    <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-slate-100 text-xs">
                       <a
                         href={`tel:${r.phone}`}
-                        className="text-sky-600 font-bold flex items-center gap-1 py-1 px-2 rounded-md hover:bg-sky-50"
+                        className="text-sky-600 font-bold flex items-center gap-1 py-1 px-1.5 rounded-md hover:bg-sky-50 truncate"
                       >
-                        <Icons.Phone className="w-3.5 h-3.5" />
-                        <span>{r.phone}</span>
+                        <Icons.Phone className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="truncate">{r.phone}</span>
                       </a>
 
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <button
                           onClick={() => setViewRecord(r)}
                           className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-100 flex items-center gap-1"
@@ -1280,7 +1283,7 @@ export function AdminTable({ onDataLoaded }) {
 
             {/* Right: Page Navigation Controls */}
             {pageSize !== 0 && totalPages > 1 && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center flex-wrap justify-center gap-1">
                 <button
                   type="button"
                   onClick={() => setCurrentPage(1)}

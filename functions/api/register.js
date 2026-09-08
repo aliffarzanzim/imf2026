@@ -19,7 +19,35 @@ export async function onRequestPost(context) {
       // Column already exists
     }
 
+    // Check if registration is turned off by admin
+    try {
+      const regConfig = await env.DB.prepare(
+        "SELECT value FROM system_config WHERE key = 'registration_open' LIMIT 1"
+      ).first();
+      if (regConfig && regConfig.value === "false") {
+        return new Response(
+          JSON.stringify({ error: "Registration is currently closed by the organizing committee." }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    } catch (_) {}
+
     const data = await request.json();
+
+    // Check if abstract submission during registration is turned off
+    if (data.abstracts && Array.isArray(data.abstracts) && data.abstracts.length > 0) {
+      try {
+        const absConfig = await env.DB.prepare(
+          "SELECT value FROM system_config WHERE key = 'abstract_edit_open' LIMIT 1"
+        ).first();
+        if (absConfig && absConfig.value === "false") {
+          return new Response(
+            JSON.stringify({ error: "Abstract submission is currently closed by the organizing committee." }),
+            { status: 403, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      } catch (_) {}
+    }
 
     // Required personal info validation
     const required = ["fullName", "institution", "batch", "academicYear", "phone", "email"];

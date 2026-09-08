@@ -10,6 +10,19 @@ export async function onRequestPost(context) {
       );
     }
 
+    // Check if abstract submission is turned off by admin
+    try {
+      const absConfig = await env.DB.prepare(
+        "SELECT value FROM system_config WHERE key = 'abstract_edit_open' LIMIT 1"
+      ).first();
+      if (absConfig && absConfig.value === "false") {
+        return new Response(
+          JSON.stringify({ error: "Abstract submission is currently closed by the organizing committee." }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    } catch (_) {}
+
     const data = await request.json();
 
     // Required fields validation

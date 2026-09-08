@@ -58,6 +58,21 @@ export async function onRequestPost(context) {
       );
     }
 
+    // Check if abstract submission & delegate editing is turned off by admin
+    try {
+      const absConfig = await env.DB.prepare(
+        "SELECT value FROM system_config WHERE key = 'abstract_edit_open' LIMIT 1"
+      ).first();
+      if (absConfig && absConfig.value === "false") {
+        return new Response(
+          JSON.stringify({
+            error: "Abstract submission and registration editing are currently closed by the organizing committee (View-Only Mode).",
+          }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    } catch (_) {}
+
     // Authenticate delegate record
     let reg = null;
     if (identifierReg) {

@@ -49,6 +49,8 @@ import {
   HeartPulse,
   Lock,
   ExternalLink,
+  SlidersHorizontal,
+  Settings,
 } from "lucide-react";
 
 export const Icons = {
@@ -58,6 +60,8 @@ export const Icons = {
   Logout:        LogOut,
   Back:          ArrowLeft,
   Lock:          Lock,
+  Config:        SlidersHorizontal,
+  Settings:      Settings,
 
   // Actions
   Upload:        UploadCloud,

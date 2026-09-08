@@ -10,6 +10,7 @@ export function MedicalCollegeInput({
   id = "institution",
   required = false,
   className = "",
+  disabled = false,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -139,50 +140,54 @@ export function MedicalCollegeInput({
           ref={inputRef}
           id={id}
           type="text"
-          className={`form-input pr-16 text-sm py-2.5 ${className}`}
+          disabled={disabled}
+          className={`form-input pr-16 text-sm py-2.5 ${disabled ? "bg-slate-100/80 text-slate-500 cursor-not-allowed border-slate-200" : ""} ${className}`}
           placeholder={placeholder}
           value={value}
           onChange={(e) => {
+            if (disabled) return;
             onChange(e.target.value);
             setIsOpen(true);
             setHighlightedIndex(-1);
           }}
-          onFocus={() => setIsOpen(true)}
+          onFocus={() => { if (!disabled) setIsOpen(true); }}
           onKeyDown={handleKeyDown}
           autoComplete="off"
           required={required}
         />
 
         {/* Clear / Toggle icons on right */}
-        <div className="absolute right-2.5 flex items-center gap-1">
-          {value && (
+        {!disabled && (
+          <div className="absolute right-2.5 flex items-center gap-1">
+            {value && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange("");
+                  inputRef.current?.focus();
+                }}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
+                title="Clear input"
+              >
+                <Icons.Close className="w-3.5 h-3.5" />
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={() => {
-                onChange("");
-                inputRef.current?.focus();
-              }}
+              onClick={() => setIsOpen(!isOpen)}
               className="p-1 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
-              title="Clear input"
+              title="Toggle suggestions list"
+              tabIndex={-1}
             >
-              <Icons.Close className="w-3.5 h-3.5" />
+              <Icons.ChevronDown
+                className={`w-4 h-4 transition-transform duration-200 ${
+                  isOpen ? "rotate-180 text-sky-600" : ""
+                }`}
+              />
             </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setIsOpen(!isOpen)}
-            className="p-1 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
-            title="Toggle suggestions list"
-            tabIndex={-1}
-          >
-            <Icons.ChevronDown
-              className={`w-4 h-4 transition-transform duration-200 ${
-                isOpen ? "rotate-180 text-sky-600" : ""
-              }`}
-            />
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Custom Rich Suggestion Dropdown */}

@@ -4,6 +4,7 @@ import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 import { AdminTable } from "../components/AdminTable";
 import { ActivityParticipationModal } from "../components/ActivityParticipationModal";
+import { AdminConfigModal } from "../components/AdminConfigModal";
 import { adminLogin, adminLogout, isAdminAuthed } from "../utils/api";
 import { Icons } from "../assets/icons";
 import { navigate } from "../utils/navigation";
@@ -16,6 +17,7 @@ export function Admin() {
   const [showPass, setShowPass] = useState(false);
   const [adminData, setAdminData] = useState({ registrations: [], abstracts: [] });
   const [showActivityModal, setShowActivityModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
 
   useEffect(() => {
     setAuthed(isAdminAuthed());
@@ -54,7 +56,7 @@ export function Admin() {
         onOpenRegister={() => navigate("/register")}
       />
 
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 w-full">
+      <main className="flex-1 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-16 w-full overflow-hidden">
         {!authed ? (
           /* ── Modern Slick Login Gate ── */
           <div className="flex flex-col items-center justify-center min-h-[65vh] px-2 sm:px-4">
@@ -163,7 +165,7 @@ export function Admin() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => setShowActivityModal(true)}
@@ -174,10 +176,13 @@ export function Admin() {
                     <span>Activity &amp; Participation</span>
                   </button>
                   <button
-                    onClick={() => navigate("/")}
-                    className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all"
+                    type="button"
+                    onClick={() => setShowConfigModal(true)}
+                    className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all flex items-center gap-1.5 shadow-xs"
+                    title="Portal access & feature toggles"
                   >
-                    Public View
+                    <Icons.Config className="w-3.5 h-3.5 text-slate-300" />
+                    <span>Config</span>
                   </button>
                   <button
                     onClick={handleLogout}
@@ -198,6 +203,13 @@ export function Admin() {
               <ActivityParticipationModal
                 registrations={adminData.registrations}
                 onClose={() => setShowActivityModal(false)}
+              />
+            )}
+
+            {/* Config & Access Control Modal */}
+            {showConfigModal && (
+              <AdminConfigModal
+                onClose={() => setShowConfigModal(false)}
               />
             )}
           </div>

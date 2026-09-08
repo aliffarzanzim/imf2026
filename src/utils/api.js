@@ -216,3 +216,20 @@ export function getAdminDownloadUrl() {
   const token = getAdminToken() || "";
   return `/api/admin/download-all?token=${encodeURIComponent(token)}`;
 }
+
+// ── System Configuration & Feature Toggles ────────────────────
+export async function getSystemConfig() {
+  return request("/api/config");
+}
+
+export async function getAdminConfig() {
+  return request("/api/admin/config");
+}
+
+export async function updateAdminConfig(toggles) {
+  return request("/api/admin/config", {
+    method: "POST",
+    body: JSON.stringify(toggles),
+  });
+}
+

@@ -150,53 +150,27 @@ export function ActivityParticipationModal({ registrations = [], onClose }) {
           </button>
         </div>
 
-        {/* Top Highlight Metric Bar */}
-        <div className="bg-slate-50 border-b border-slate-200/80 p-4 sm:p-5 grid grid-cols-2 sm:grid-cols-3 gap-3 flex-shrink-0">
-          <div className="bg-white p-3.5 rounded-2xl border border-slate-200/70 shadow-xs flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600 flex-shrink-0">
-              <Icons.Users className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                Total Attendees
-              </span>
-              <span className="text-2xl font-black text-slate-900 leading-tight block">
-                {totalAttendees}
-              </span>
-            </div>
-          </div>
-
-          <div className="bg-white p-3.5 rounded-2xl border border-slate-200/70 shadow-xs flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-600 flex-shrink-0">
-              <Icons.Clipboard className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                Activity Enrollments
-              </span>
-              <span className="text-2xl font-black text-teal-700 leading-tight block">
-                {totalActEntries}
-              </span>
+        {/* Scrollable Content Area */}
+        <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-6">
+          {/* Centered Total Attendees Banner */}
+          <div className="flex flex-col items-center justify-center text-center">
+            <div className="inline-flex items-center gap-3 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-sky-50 to-teal-50 border border-sky-200/80 shadow-xs">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-600 to-teal-600 text-white flex items-center justify-center shadow-xs">
+                <Icons.Users className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block leading-tight">
+                  Total Attendees
+                </span>
+                <span className="text-2xl font-black text-slate-900 leading-none font-mono">
+                  {totalAttendees}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="col-span-2 sm:col-span-1 bg-white p-3.5 rounded-2xl border border-slate-200/70 shadow-xs flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 flex-shrink-0">
-              <Icons.Trophy className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                Competition Entries
-              </span>
-              <span className="text-2xl font-black text-amber-700 leading-tight block">
-                {totalCompEntries}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Two-Column Content Area */}
-        <div className="p-5 sm:p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Two-Column Breakdown */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Left Column: Activities */}
           <div className="space-y-3.5">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200">
@@ -319,16 +293,17 @@ export function ActivityParticipationModal({ registrations = [], onClose }) {
             </div>
           </div>
         </div>
+      </div>
 
         {/* Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 flex-shrink-0">
+        <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0 text-center sm:text-left">
           <span className="text-xs text-slate-500">
             Real-time aggregate data computed directly from all registered delegates.
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="btn-primary text-xs py-2 px-5 font-bold shadow-xs"
+            className="btn-primary text-xs py-2 px-6 font-bold shadow-xs w-full sm:w-auto"
           >
             Done
           </button>

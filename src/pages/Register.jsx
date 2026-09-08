@@ -10,6 +10,7 @@ import {
   updateRegistrationData,
   getUploadUrl,
   uploadFileToR2,
+  getSystemConfig,
 } from "../utils/api";
 import { SuccessCard } from "../components/SuccessCard";
 import { MedicalCollegeInput } from "../components/MedicalCollegeInput";
@@ -135,6 +136,20 @@ export function Register({ initialMode = "register" }) {
       : "register";
 
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [config, setConfig] = useState({ registration_open: true, abstract_edit_open: true });
+
+  useEffect(() => {
+    async function loadConfig() {
+      try {
+        const c = await getSystemConfig();
+        setConfig(c);
+      } catch (_) {}
+    }
+    loadConfig();
+  }, []);
+
+  const isRegistrationClosed = config.registration_open === false;
+  const isEditLocked = config.abstract_edit_open === false;
 
   // ── New Registration State ─────────────────────────────────────
   const [step, setStep] = useState(0);
@@ -1155,6 +1170,41 @@ export function Register({ initialMode = "register" }) {
             TAB 1: NEW REGISTRATION
         ════════════════════════════════════════════════════════════ */}
         {activeTab === "register" && (
+          isRegistrationClosed ? (
+            <div className="card p-8 sm:p-12 text-center bg-white border border-slate-200 shadow-elevated rounded-3xl space-y-6 animate-fade-in">
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-sm">
+                <Icons.Lock className="w-8 h-8" />
+              </div>
+              <div className="max-w-md mx-auto space-y-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                  Registration Closed
+                </span>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight pt-1">
+                  Delegate Registration is Closed
+                </h2>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  New delegate registration for Internal Medicine Festival 2026 is currently turned off by event administration.
+                </p>
+              </div>
+
+              <div className="pt-6 border-t border-slate-100 max-w-sm mx-auto space-y-3">
+                <p className="text-xs text-slate-500 font-medium">
+                  Already registered? You can verify and view your delegate pass &amp; submitted abstracts:
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("manage");
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className="w-full btn-primary py-3 text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                >
+                  <Icons.Badge className="w-4 h-4" />
+                  <span>Access Registered Delegate Portal</span>
+                </button>
+              </div>
+            </div>
+          ) : (
           <>
             {/* Banner Header */}
             <div className="card p-6 sm:p-8 mb-8 bg-gradient-to-r from-sky-900 to-slate-900 text-white border-0 shadow-elevated">
@@ -2128,6 +2178,7 @@ export function Register({ initialMode = "register" }) {
 
             </div>
           </>
+          )
         )}
 
         {/* ════════════════════════════════════════════════════════════
@@ -2150,7 +2201,10 @@ export function Register({ initialMode = "register" }) {
                       <div className="mt-2.5 px-3.5 py-2 rounded-xl bg-sky-50 border border-sky-100 text-sky-800 text-xs text-center leading-relaxed flex items-center justify-center gap-2">
                         <Icons.Edit className="w-3.5 h-3.5 text-sky-600 flex-shrink-0" />
                         <span>
-                          <strong>Already registered?</strong> You can edit your registration details or submit &amp; update your scientific abstract here.
+                          <strong>Already registered?</strong>{" "}
+                          {isEditLocked
+                            ? "Enter your email to verify and view your delegate pass and submitted abstracts."
+                            : "You can edit your registration details or submit & update your scientific abstract here."}
                         </span>
                       </div>
                     </div>
@@ -2294,15 +2348,17 @@ export function Register({ initialMode = "register" }) {
                   </div>
                 )}
 
-                <div className="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
-                  <span>Haven't registered yet? </span>
-                  <button
-                    onClick={() => { setActiveTab("register"); }}
-                    className="text-sky-600 font-bold hover:underline"
-                  >
-                    Complete registration now
-                  </button>
-                </div>
+                {!isRegistrationClosed && (
+                  <div className="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
+                    <span>Haven't registered yet? </span>
+                    <button
+                      onClick={() => { setActiveTab("register"); }}
+                      className="text-sky-600 font-bold hover:underline cursor-pointer"
+                    >
+                      Complete registration now
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               /* Authenticated Dashboard: Single-Page View for All Details & Multiple Abstracts */
@@ -2344,6 +2400,19 @@ export function Register({ initialMode = "register" }) {
                     <span>Exit / Logout</span>
                   </button>
                 </div>
+
+                {/* View-Only Mode Notice Banner */}
+                {isEditLocked && (
+                  <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs flex items-start gap-3 shadow-xs animate-fade-in">
+                    <Icons.Lock className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <strong className="font-bold text-amber-950 block text-sm">View-Only Mode Active</strong>
+                      <p className="text-amber-800 leading-relaxed">
+                        Abstract submissions and profile edits are currently closed by festival administration. All fields below are displayed in read-only mode for your records.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Alert Messages */}
                 {manageSuccessMsg && (
@@ -2399,7 +2468,8 @@ export function Register({ initialMode = "register" }) {
                       <input
                         id="mFullName"
                         type="text"
-                        className="form-input"
+                        disabled={isEditLocked}
+                        className={`form-input ${isEditLocked ? "bg-slate-100/80 text-slate-500 cursor-not-allowed border-slate-200" : ""}`}
                         placeholder="e.g. Dr. Tanvir Ahmed"
                         value={manageReg.fullName}
                         onChange={(e) => updateManageReg("fullName", e.target.value)}
@@ -2413,6 +2483,7 @@ export function Register({ initialMode = "register" }) {
                       </label>
                       <MedicalCollegeInput
                         id="mInst"
+                        disabled={isEditLocked}
                         placeholder="Search or enter your medical college"
                         value={manageReg.institution}
                         onChange={(val) => updateManageReg("institution", val)}
@@ -2426,7 +2497,8 @@ export function Register({ initialMode = "register" }) {
                       </label>
                       <select
                         id="mBatch"
-                        className="form-select"
+                        disabled={isEditLocked}
+                        className={`form-select ${isEditLocked ? "bg-slate-100/80 text-slate-500 cursor-not-allowed border-slate-200" : ""}`}
                         value={manageReg.batch}
                         onChange={(e) => updateManageReg("batch", e.target.value)}
                         required
@@ -2442,7 +2514,8 @@ export function Register({ initialMode = "register" }) {
                       </label>
                       <select
                         id="mYear"
-                        className="form-select"
+                        disabled={isEditLocked}
+                        className={`form-select ${isEditLocked ? "bg-slate-100/80 text-slate-500 cursor-not-allowed border-slate-200" : ""}`}
                         value={manageReg.academicYear}
                         onChange={(e) => updateManageReg("academicYear", e.target.value)}
                         required
@@ -2459,7 +2532,8 @@ export function Register({ initialMode = "register" }) {
                       <input
                         id="mPhone"
                         type="tel"
-                        className="form-input"
+                        disabled={isEditLocked}
+                        className={`form-input ${isEditLocked ? "bg-slate-100/80 text-slate-500 cursor-not-allowed border-slate-200" : ""}`}
                         placeholder="e.g. 017xxxxxxxx"
                         value={manageReg.phone}
                         onChange={(e) => updateManageReg("phone", e.target.value)}
@@ -2515,23 +2589,25 @@ export function Register({ initialMode = "register" }) {
                       <label className="form-label form-label-required mb-0">
                         Which activities would you like to attend?
                       </label>
-                      <button
-                        type="button"
-                        onClick={toggleAllManageActivities}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer bg-sky-50 text-sky-700 border-sky-200/80 hover:bg-sky-100 hover:border-sky-300 active:scale-95 select-none"
-                      >
-                        {allManageActivitiesSelected ? (
-                          <>
-                            <Icons.Close className="w-3.5 h-3.5 text-sky-600" />
-                            <span>Deselect All</span>
-                          </>
-                        ) : (
-                          <>
-                            <Icons.Check className="w-3.5 h-3.5 text-sky-600" />
-                            <span>Select All</span>
-                          </>
-                        )}
-                      </button>
+                      {!isEditLocked && (
+                        <button
+                          type="button"
+                          onClick={toggleAllManageActivities}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer bg-sky-50 text-sky-700 border-sky-200/80 hover:bg-sky-100 hover:border-sky-300 active:scale-95 select-none"
+                        >
+                          {allManageActivitiesSelected ? (
+                            <>
+                              <Icons.Close className="w-3.5 h-3.5 text-sky-600" />
+                              <span>Deselect All</span>
+                            </>
+                          ) : (
+                            <>
+                              <Icons.Check className="w-3.5 h-3.5 text-sky-600" />
+                              <span>Select All</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2540,8 +2616,10 @@ export function Register({ initialMode = "register" }) {
                         return (
                           <div
                             key={act.id}
-                            onClick={() => toggleManageActivity(act.label)}
-                            className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+                            onClick={() => !isEditLocked && toggleManageActivity(act.label)}
+                            className={`p-3.5 rounded-xl border transition-all flex items-start gap-3 ${
+                              isEditLocked ? "cursor-not-allowed opacity-85" : "cursor-pointer"
+                            } ${
                               selected
                                 ? "bg-sky-50/70 border-sky-400 ring-1 ring-sky-400"
                                 : "bg-white border-slate-200 hover:border-slate-300"
@@ -2549,6 +2627,7 @@ export function Register({ initialMode = "register" }) {
                           >
                             <input
                               type="checkbox"
+                              disabled={isEditLocked}
                               checked={selected}
                               onChange={() => {}}
                               className="w-4 h-4 accent-sky-600 mt-0.5"
@@ -2574,8 +2653,10 @@ export function Register({ initialMode = "register" }) {
                         return (
                           <div
                             key={c}
-                            onClick={() => toggleManageCompetitionCategory(c)}
-                            className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center gap-3 ${
+                            onClick={() => !isEditLocked && toggleManageCompetitionCategory(c)}
+                            className={`p-3.5 rounded-xl border transition-all flex items-center gap-3 ${
+                              isEditLocked ? "cursor-not-allowed opacity-85" : "cursor-pointer"
+                            } ${
                               selected
                                 ? "bg-sky-50/70 border-sky-400 ring-1 ring-sky-400"
                                 : "bg-white border-slate-200 hover:border-slate-300"
@@ -2583,6 +2664,7 @@ export function Register({ initialMode = "register" }) {
                           >
                             <input
                               type="checkbox"
+                              disabled={isEditLocked}
                               checked={selected}
                               onChange={() => {}}
                               className="w-4 h-4 accent-sky-600 flex-shrink-0"
@@ -2628,14 +2710,20 @@ export function Register({ initialMode = "register" }) {
                           You are registered as a festival delegate. You can submit one or more scientific abstracts for presentation at IMF 2026.
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleAddManageAbstract}
-                        className="btn-primary text-xs py-2.5 px-5 font-bold inline-flex items-center gap-2 cursor-pointer shadow-xs"
-                      >
-                        <Icons.Plus className="w-4 h-4" />
-                        <span>Submit an Abstract Now</span>
-                      </button>
+                      {!isEditLocked ? (
+                        <button
+                          type="button"
+                          onClick={handleAddManageAbstract}
+                          className="btn-primary text-xs py-2.5 px-5 font-bold inline-flex items-center gap-2 cursor-pointer shadow-xs"
+                        >
+                          <Icons.Plus className="w-4 h-4" />
+                          <span>Submit an Abstract Now</span>
+                        </button>
+                      ) : (
+                        <span className="inline-block text-xs font-semibold text-slate-500 bg-slate-100 px-3.5 py-1.5 rounded-xl border border-slate-200">
+                          Abstract submission window is closed
+                        </span>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-8">
@@ -3054,44 +3142,65 @@ export function Register({ initialMode = "register" }) {
                   </div>
                 </div>
 
-                {/* ── Bottom Unified Action Bar: Save All Changes ── */}
-                <div className="card p-6 bg-gradient-to-r from-sky-900 via-slate-900 to-teal-950 text-white border border-sky-800/40 shadow-xl rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-5 sticky bottom-4 z-20 backdrop-blur-md">
-                  <div>
-                    <h4 className="text-base font-bold text-white flex items-center gap-2">
-                      <Icons.Check className="w-5 h-5 text-emerald-400" />
-                      <span>{isManageDirty ? "Ready to Save Your Changes?" : "No Unsaved Changes"}</span>
-                    </h4>
-                    <p className="text-xs text-slate-300 mt-1">
-                      {isManageDirty
-                        ? "You have unsaved modifications. All changes across your delegate profile, segments, and abstracts will be saved together."
-                        : "No modifications detected. Edit any profile information or abstracts above to enable saving."}
-                    </p>
+                {/* ── Bottom Unified Action Bar ── */}
+                {isEditLocked ? (
+                  <div className="card p-5 bg-slate-900 text-white border border-slate-800 shadow-xl rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 sticky bottom-4 z-20 backdrop-blur-md animate-fade-in">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0">
+                        <Icons.Lock className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white">
+                          Profile &amp; Abstract Editing is Locked
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Delegate profile edits and abstract submissions are closed. Your submitted data is securely saved.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="px-3.5 py-1.5 rounded-xl bg-amber-400/10 text-amber-300 border border-amber-400/20 text-xs font-bold whitespace-nowrap">
+                      View-Only Mode
+                    </span>
                   </div>
+                ) : (
+                  <div className="card p-6 bg-gradient-to-r from-sky-900 via-slate-900 to-teal-950 text-white border border-sky-800/40 shadow-xl rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-5 sticky bottom-4 z-20 backdrop-blur-md">
+                    <div>
+                      <h4 className="text-base font-bold text-white flex items-center gap-2">
+                        <Icons.Check className="w-5 h-5 text-emerald-400" />
+                        <span>{isManageDirty ? "Ready to Save Your Changes?" : "No Unsaved Changes"}</span>
+                      </h4>
+                      <p className="text-xs text-slate-300 mt-1">
+                        {isManageDirty
+                          ? "You have unsaved modifications. All changes across your delegate profile, segments, and abstracts will be saved together."
+                          : "No modifications detected. Edit any profile information or abstracts above to enable saving."}
+                      </p>
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={handleSaveAllManage}
-                    disabled={manageSaving || !isManageDirty}
-                    className={`btn-primary text-sm py-3.5 px-8 font-bold flex items-center justify-center gap-2.5 shadow-lg transition-all flex-shrink-0 w-full sm:w-auto ${
-                      !isManageDirty
-                        ? "bg-slate-700/60 text-slate-400 border border-slate-600/50 cursor-not-allowed opacity-50 shadow-none hover:bg-slate-700/60"
-                        : "bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white border-0 cursor-pointer hover:shadow-xl active:scale-[0.99]"
-                    }`}
-                    title={!isManageDirty ? "Make changes above to enable saving" : "Click to save all changes"}
-                  >
-                    {manageSaving ? (
-                      <>
-                        <Icons.Spinner className="w-4 h-4 animate-spin" />
-                        <span>Saving All Changes…</span>
-                      </>
-                    ) : (
-                      <>
-                        <Icons.Check className="w-4 h-4" />
-                        <span>{isManageDirty ? "Save All Changes" : "No Changes to Save"}</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={handleSaveAllManage}
+                      disabled={manageSaving || !isManageDirty}
+                      className={`btn-primary text-sm py-3.5 px-8 font-bold flex items-center justify-center gap-2.5 shadow-lg transition-all flex-shrink-0 w-full sm:w-auto ${
+                        !isManageDirty
+                          ? "bg-slate-700/60 text-slate-400 border border-slate-600/50 cursor-not-allowed opacity-50 shadow-none hover:bg-slate-700/60"
+                          : "bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white border-0 cursor-pointer hover:shadow-xl active:scale-[0.99]"
+                      }`}
+                      title={!isManageDirty ? "Make changes above to enable saving" : "Click to save all changes"}
+                    >
+                      {manageSaving ? (
+                        <>
+                          <Icons.Spinner className="w-4 h-4 animate-spin" />
+                          <span>Saving All Changes…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Icons.Check className="w-4 h-4" />
+                          <span>{isManageDirty ? "Save All Changes" : "No Changes to Save"}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
 
                 {/* ── Save Successful Modal Popup (Rendered via Portal to document.body for true full-page overlay) ── */}
                 {showSaveSuccessModal && typeof document !== "undefined" && createPortal(

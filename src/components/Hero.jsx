@@ -1,6 +1,7 @@
 // src/components/Hero.jsx
 import React, { useState, useEffect } from "react";
 import { Icons } from "../assets/icons";
+import { getSystemConfig } from "../utils/api";
 import imigLogo from "../assets/logos/imig.jpg";
 import acpLogo from "../assets/logos/acp.jpg";
 import bsmLogo from "../assets/logos/bsm.jpg";
@@ -84,6 +85,17 @@ function getInitialCountdown() {
 export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
   // Synchronous countdown to eliminate initial render flicker / layout shift
   const [timeLeft, setTimeLeft] = useState(getInitialCountdown);
+  const [config, setConfig] = useState({ registration_open: true, abstract_edit_open: true });
+
+  useEffect(() => {
+    getSystemConfig()
+      .then((c) => {
+        if (c && typeof c.registration_open === "boolean") {
+          setConfig(c);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -139,14 +151,25 @@ export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
           {/* Primary CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 mt-8 w-full max-w-md sm:max-w-none sm:w-auto">
             {/* Register Button */}
-            <button
-              id="open-register-btn"
-              onClick={onOpenRegister}
-              className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-bold text-white rounded-xl shadow-md bg-sky-600 hover:bg-sky-700 active:bg-sky-800 transition-colors"
-            >
-              <span>Register for Festival</span>
-              <Icons.Back className="w-4 h-4 rotate-180" />
-            </button>
+            {config.registration_open === false ? (
+              <button
+                disabled
+                className="inline-flex items-center justify-center gap-2 px-8 py-3.5 text-base font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-xl cursor-not-allowed shadow-none"
+                title="Registration is currently closed by the organizing committee"
+              >
+                <Icons.Lock className="w-4 h-4 text-slate-400" />
+                <span>Registration Closed</span>
+              </button>
+            ) : (
+              <button
+                id="open-register-btn"
+                onClick={onOpenRegister}
+                className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-bold text-white rounded-xl shadow-md bg-sky-600 hover:bg-sky-700 active:bg-sky-800 transition-colors"
+              >
+                <span>Register for Festival</span>
+                <Icons.Back className="w-4 h-4 rotate-180" />
+              </button>
+            )}
 
             {/* Manage / Lookup Registration Button */}
             <button

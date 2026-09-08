@@ -67,3 +67,12 @@ CREATE TABLE IF NOT EXISTS otps (
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_otps_reg ON otps(reg_number);
+
+-- System Configuration & Access Control
+CREATE TABLE IF NOT EXISTS system_config (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+INSERT OR IGNORE INTO system_config (key, value) VALUES ('registration_open', 'true');
+INSERT OR IGNORE INTO system_config (key, value) VALUES ('abstract_edit_open', 'true');
