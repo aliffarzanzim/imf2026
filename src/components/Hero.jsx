@@ -182,8 +182,39 @@ export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
             Organized by <strong className="font-semibold text-slate-700">DMC IMIG</strong> &nbsp;•&nbsp; <strong className="font-semibold text-slate-700">ACP Bangladesh Chapter</strong> &nbsp;•&nbsp; <strong className="font-semibold text-slate-700">Bangladesh Society of Medicine (BSM)</strong>
           </p>
 
+          {/* ── Live Festival Milestone Cards (Smooth Decelerating Animation) ── */}
+          <div className="mt-5 sm:mt-6 grid grid-cols-2 gap-3 sm:gap-4 w-full max-w-xs sm:max-w-sm mx-auto">
+            {/* Card 1: Total Registration */}
+            <div className="group relative flex flex-col items-center justify-center p-3 sm:p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-xs hover:shadow-md hover:border-sky-300 transition-all duration-300">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 mb-1 sm:mb-1.5 group-hover:scale-110 transition-transform">
+                <Icons.Users className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-baseline">
+                <span>{animatedRegistrations.toLocaleString()}</span>
+                <span className="text-sky-600 font-extrabold text-base sm:text-xl ml-0.5">+</span>
+              </div>
+              <span className="text-[11px] sm:text-xs font-bold text-slate-600 tracking-tight text-center mt-0.5">
+                Total Registration
+              </span>
+            </div>
+
+            {/* Card 2: Medical Colleges */}
+            <div className="group relative flex flex-col items-center justify-center p-3 sm:p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-xs hover:shadow-md hover:border-teal-300 transition-all duration-300">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 mb-1 sm:mb-1.5 group-hover:scale-110 transition-transform">
+                <Icons.Institution className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-baseline">
+                <span>{animatedColleges.toLocaleString()}</span>
+                <span className="text-teal-600 font-extrabold text-base sm:text-xl ml-0.5">+</span>
+              </div>
+              <span className="text-[11px] sm:text-xs font-bold text-slate-600 tracking-tight text-center mt-0.5">
+                Medical Colleges
+              </span>
+            </div>
+          </div>
+
           {/* Key Information Chips */}
-          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mt-7 max-w-3xl">
+          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mt-6 sm:mt-7 max-w-3xl">
             <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 shadow-xs text-xs font-medium text-slate-700">
               <Icons.Date className="w-4 h-4 text-sky-600 flex-shrink-0" />
               <span>Event Date: <strong className="font-bold text-slate-900">17 September 2026</strong></span>
@@ -246,41 +277,10 @@ export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
             )}
           </div>
 
-          {/* ── Live Festival Milestone Cards (Smooth Decelerating Animation) ── */}
-          <div className="mt-7 sm:mt-8 grid grid-cols-2 gap-3 sm:gap-5 w-full max-w-xs sm:max-w-sm mx-auto">
-            {/* Card 1: Total Registration */}
-            <div className="group relative flex flex-col items-center justify-center p-3.5 sm:p-4.5 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-xs hover:shadow-md hover:border-sky-300 transition-all duration-300">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 mb-1.5 sm:mb-2 group-hover:scale-110 transition-transform">
-                <Icons.Users className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
-              </div>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-baseline">
-                <span>{animatedRegistrations.toLocaleString()}</span>
-                <span className="text-sky-600 font-extrabold text-base sm:text-xl ml-0.5">+</span>
-              </div>
-              <span className="text-[11px] sm:text-xs font-bold text-slate-600 tracking-tight text-center mt-0.5">
-                Total Registration
-              </span>
-            </div>
-
-            {/* Card 2: Medical Colleges */}
-            <div className="group relative flex flex-col items-center justify-center p-3.5 sm:p-4.5 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-xs hover:shadow-md hover:border-teal-300 transition-all duration-300">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 mb-1.5 sm:mb-2 group-hover:scale-110 transition-transform">
-                <Icons.Institution className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
-              </div>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-baseline">
-                <span>{animatedColleges.toLocaleString()}</span>
-                <span className="text-teal-600 font-extrabold text-base sm:text-xl ml-0.5">+</span>
-              </div>
-              <span className="text-[11px] sm:text-xs font-bold text-slate-600 tracking-tight text-center mt-0.5">
-                Medical Colleges
-              </span>
-            </div>
-          </div>
-
           {/* Scroll Cue to Activities */}
           <a
             href="#activities"
-            className="mt-6 sm:mt-8 inline-flex flex-col items-center gap-1.5 text-slate-400 hover:text-slate-600 transition-colors group cursor-pointer"
+            className="mt-8 sm:mt-10 inline-flex flex-col items-center gap-1.5 text-slate-400 hover:text-slate-600 transition-colors group cursor-pointer"
           >
             <span className="text-[11px] font-medium tracking-wide">Explore Festival Program</span>
             <div className="animate-bounce mt-0.5">
