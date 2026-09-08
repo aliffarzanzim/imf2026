@@ -627,7 +627,7 @@ function EditModal({ record, onSave, onClose }) {
   return typeof document !== "undefined" ? createPortal(content, document.body) : content;
 }
 
-export function AdminTable() {
+export function AdminTable({ onDataLoaded }) {
   const [data, setData]               = useState({ registrations: [], abstracts: [] });
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState("");
@@ -647,6 +647,9 @@ export function AdminTable() {
     try {
       const res = await fetchAdminRecords();
       setData(res);
+      if (typeof onDataLoaded === "function") {
+        onDataLoaded(res);
+      }
     } catch (e) {
       setError(e.message);
     } finally {

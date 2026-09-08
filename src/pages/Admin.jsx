@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 import { AdminTable } from "../components/AdminTable";
+import { ActivityParticipationModal } from "../components/ActivityParticipationModal";
 import { adminLogin, adminLogout, isAdminAuthed } from "../utils/api";
 import { Icons } from "../assets/icons";
 import { navigate } from "../utils/navigation";
@@ -13,6 +14,8 @@ export function Admin() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const [adminData, setAdminData] = useState({ registrations: [], abstracts: [] });
+  const [showActivityModal, setShowActivityModal] = useState(false);
 
   useEffect(() => {
     setAuthed(isAdminAuthed());
@@ -162,6 +165,15 @@ export function Admin() {
 
                 <div className="flex items-center gap-2.5">
                   <button
+                    type="button"
+                    onClick={() => setShowActivityModal(true)}
+                    className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-400/30 transition-all flex items-center gap-1.5 shadow-sm"
+                    title="View detailed activity and competition breakdown"
+                  >
+                    <Icons.Activity className="w-3.5 h-3.5 text-teal-400" />
+                    <span>Activity &amp; Participation</span>
+                  </button>
+                  <button
                     onClick={() => navigate("/")}
                     className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all"
                   >
@@ -179,7 +191,15 @@ export function Admin() {
             </div>
 
             {/* Main Interactive Table & Stats */}
-            <AdminTable />
+            <AdminTable onDataLoaded={setAdminData} />
+
+            {/* Activity & Participation Modal */}
+            {showActivityModal && (
+              <ActivityParticipationModal
+                registrations={adminData.registrations}
+                onClose={() => setShowActivityModal(false)}
+              />
+            )}
           </div>
         )}
       </main>
