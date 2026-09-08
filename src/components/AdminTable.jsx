@@ -13,6 +13,7 @@ import {
   exportMergedDelegatesExcel,
   exportMergedDelegatesCSV,
 } from "../utils/export";
+import { formatBdtDate, formatBdtTime, formatBdtDateTime } from "../utils/timezone";
 import { MedicalCollegeInput } from "./MedicalCollegeInput";
 
 const BATCHES = ["K-78", "K-79", "K-80", "K-81", "K-82", "K-83", "Other"];
@@ -231,9 +232,9 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDelete
                     </a>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[11px]">Registration Timestamp</span>
-                    <span className="font-medium text-slate-600 mt-0.5 block">
-                      {record.created_at ? new Date(record.created_at).toLocaleString("en-GB") : "—"}
+                    <span className="text-slate-400 block text-[11px]">Registration Timestamp (BDT)</span>
+                    <span className="font-medium text-slate-700 mt-0.5 block">
+                      {formatBdtDateTime(record.created_at, true)}
                     </span>
                   </div>
                   <div>
@@ -337,6 +338,11 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDelete
                           {abs.presentation_category && (
                             <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800">
                               {abs.presentation_category}
+                            </span>
+                          )}
+                          {abs.created_at && (
+                            <span className="text-[11px] font-medium text-slate-500 bg-slate-100/80 px-2 py-0.5 rounded-full" title="Submission Time (BDT)">
+                              🕒 {formatBdtDateTime(abs.created_at, true)}
                             </span>
                           )}
                         </div>
@@ -988,7 +994,7 @@ export function AdminTable() {
                     <th className="text-center">Activities</th>
                     <th className="text-center">Competitions</th>
                     <th className="text-center">Abstracts</th>
-                    <th>Date</th>
+                    <th className="whitespace-nowrap">Registered (BDT)</th>
                     <th className="text-right pr-6">Actions</th>
                   </tr>
                 </thead>
@@ -1075,11 +1081,13 @@ export function AdminTable() {
                           )}
                         </td>
 
-                        <td className="text-[11px] text-slate-400 whitespace-nowrap">
-                          {new Date(r.created_at).toLocaleDateString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                          })}
+                        <td className="text-[11px] whitespace-nowrap" title={`Registration Time: ${formatBdtDateTime(r.created_at, true)}`}>
+                          <div className="font-semibold text-slate-700">
+                            {formatBdtDate(r.created_at)}
+                          </div>
+                          <div className="text-[10px] font-mono text-slate-400">
+                            {formatBdtTime(r.created_at)}
+                          </div>
                         </td>
 
                         {/* Actions Column (Eye, Edit, Delete) */}

@@ -1,4 +1,5 @@
 // src/utils/export.js — Excel & CSV export utilities (SheetJS loaded on-demand)
+import { formatBdtDate, formatBdtTime, formatBdtDateTime } from "./timezone";
 
 function sanitizeCell(val) {
   if (typeof val === "string" && /^[=+@\-\t\r]/.test(val)) {
@@ -14,6 +15,11 @@ function flattenRecord(rec) {
       ? rec.activities.join(", ")
       : rec.activities,
   };
+
+  // Format created_at to Bangladesh Standard Time (BDT)
+  if (flat.created_at) {
+    flat.created_at = formatBdtDateTime(flat.created_at, true);
+  }
 
   const sanitized = {};
   for (const [key, value] of Object.entries(flat)) {
@@ -67,13 +73,8 @@ export function buildMergedDelegateRows(registrations = [], abstracts = []) {
       "Abstract Titles": abstractTitles || "—",
       "Abstract IDs": abstractNumbers || "—",
       "Submission Details": submissionTypes || "—",
-      "Registered Date": reg.created_at
-        ? new Date(reg.created_at).toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          })
-        : "",
+      "Registered Date (BDT)": formatBdtDate(reg.created_at),
+      "Registered Time (BDT)": formatBdtTime(reg.created_at),
     };
 
     const sanitized = {};
