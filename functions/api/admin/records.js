@@ -26,7 +26,7 @@ export async function onRequestGet(context) {
     } catch (_) {}
 
     const { results: regResults } = await env.DB.prepare(
-      "SELECT * FROM registrations ORDER BY id DESC"
+      "SELECT * FROM registrations ORDER BY id ASC"
     ).all();
 
     const registrations = (regResults || []).map((r) => {
@@ -44,7 +44,7 @@ export async function onRequestGet(context) {
     });
 
     const { results: absResults } = await env.DB.prepare(
-      "SELECT * FROM abstracts ORDER BY id DESC"
+      "SELECT * FROM abstracts ORDER BY id ASC"
     ).all();
 
     return new Response(

@@ -807,16 +807,24 @@ export function AdminTable({ onDataLoaded, onRoleUpdated, externalRoleUpdate }) 
     setCurrentPage(1);
   }, [search, batchFilter, roleFilter, filterType, pageSize]);
 
-  const totalItems = filtered.length;
+  // Sort organisers strictly in descending order, keeping all other views in ascending order
+  const sortedFiltered = useMemo(() => {
+    if (roleFilter === "organisers") {
+      return [...filtered].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+    }
+    return filtered;
+  }, [filtered, roleFilter]);
+
+  const totalItems = sortedFiltered.length;
   const effectivePageSize = pageSize === 0 ? Math.max(1, totalItems) : (Number(pageSize) || 25);
   const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(totalItems / effectivePageSize));
   const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
 
   const paginatedRecords = useMemo(() => {
-    if (pageSize === 0) return filtered;
+    if (pageSize === 0) return sortedFiltered;
     const startIndex = (validCurrentPage - 1) * effectivePageSize;
-    return filtered.slice(startIndex, startIndex + effectivePageSize);
-  }, [filtered, validCurrentPage, effectivePageSize, pageSize]);
+    return sortedFiltered.slice(startIndex, startIndex + effectivePageSize);
+  }, [sortedFiltered, validCurrentPage, effectivePageSize, pageSize]);
 
   async function handleDelete(type, id) {
     try {
