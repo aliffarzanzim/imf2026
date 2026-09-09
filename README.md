@@ -33,6 +33,35 @@
 
 ---
 
+## 🪪 Conference Chest Cards & ID Badges
+
+Official press-ready credentials designed for festival delegates and the organizing committee. Badges feature high-security dynamic QR verification, institutional seals, and distinctive executive color palettes (Deep Forest Green for Organisers, Executive Navy for Participants).
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <b>Organiser Badge</b><br><br>
+      <img src="chest-card-generation/chest-card-organiser_hd.png" alt="IMF 2026 Organiser Chest Card - Alif Farzan Zim" width="340" />
+      <br><br>
+      <sub><b>Alif Farzan Zim</b> &bull; Organiser (IMF-REG-0439)</sub>
+    </td>
+    <td align="center" width="50%">
+      <b>Participant Badge (First Registrant)</b><br><br>
+      <img src="chest-card-generation/chest-card-participant_hd.png" alt="IMF 2026 Participant Chest Card - Mahadi Hasan Siam" width="340" />
+      <br><br>
+      <sub><b>Mahadi Hasan Siam</b> &bull; Participant (IMF-REG-0006)</sub>
+    </td>
+  </tr>
+</table>
+
+### 🔍 Badge Verification
+Each chest card features a tamper-proof cryptographic QR code verified in real-time by the Cloudflare Edge verification engine.
+
+Direct verification link for Alif Farzan Zim:  
+https://imf2026.pages.dev/verify?reg=IMF-REG-0439&sig=aea2e51b
+
+---
+
 ## ⚡ Technical Architecture
 
 This application is built as a zero-cost, high-performance, serverless full-stack web platform powered by Cloudflare:

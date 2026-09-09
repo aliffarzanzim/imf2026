@@ -11,6 +11,7 @@ import {
   getUploadUrl,
   uploadFileToR2,
   getSystemConfig,
+  getInitialSystemConfig,
 } from "../utils/api";
 import { SuccessCard } from "../components/SuccessCard";
 import { MedicalCollegeInput } from "../components/MedicalCollegeInput";
@@ -136,13 +137,16 @@ export function Register({ initialMode = "register" }) {
       : "register";
 
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [config, setConfig] = useState({ registration_open: true, abstract_edit_open: true });
+  const [config, setConfig] = useState(getInitialSystemConfig);
 
   useEffect(() => {
     async function loadConfig() {
       try {
         const c = await getSystemConfig();
         setConfig(c);
+        if (c && c.registration_abstract_only && c.registration_open !== false) {
+          setForm((f) => ({ ...f, submitAbstract: true }));
+        }
       } catch (_) {}
     }
     loadConfig();
@@ -150,6 +154,7 @@ export function Register({ initialMode = "register" }) {
 
   const isRegistrationClosed = config.registration_open === false;
   const isEditLocked = config.abstract_edit_open === false;
+  const isAbstractOnly = config.registration_abstract_only === true && !isRegistrationClosed;
 
   // ── New Registration State ─────────────────────────────────────
   const [step, setStep] = useState(0);
@@ -170,8 +175,8 @@ export function Register({ initialMode = "register" }) {
     activities:          [],
     competitionCategory: [],
 
-    // Abstract (Step 2 - Default NO)
-    submitAbstract:      initialMode === "abstract",
+    // Abstract (Step 2 - Default NO unless abstract-only mode is active)
+    submitAbstract:      initialMode === "abstract" || isAbstractOnly,
 
     // Additional Info (Step 3)
     priorExperience:     "",
@@ -545,9 +550,12 @@ export function Register({ initialMode = "register" }) {
       if (form.competitionCategory.length === 0) return "Please select at least one competition preference.";
     }
     if (step === 2) {
-      if (form.submitAbstract) {
+      if (isAbstractOnly && !form.submitAbstract) {
+        return "Registration is currently open for abstract submission only. You must submit a scientific abstract to proceed.";
+      }
+      if (form.submitAbstract || isAbstractOnly) {
         if (abstracts.length === 0) {
-          return "Please add at least one abstract or select attendee only.";
+          return "Please add at least one scientific abstract to proceed.";
         }
         for (let i = 0; i < abstracts.length; i++) {
           const abs = abstracts[i];
@@ -605,7 +613,8 @@ export function Register({ initialMode = "register" }) {
     setError("");
 
     try {
-      const processedAbstracts = form.submitAbstract
+      const isSubmittingAbstract = form.submitAbstract || isAbstractOnly;
+      const processedAbstracts = isSubmittingAbstract
         ? abstracts.map((abs) => ({
             title: abs.title.trim(),
             submissionType: abs.submissionType,
@@ -636,7 +645,7 @@ export function Register({ initialMode = "register" }) {
         competitionCategory: form.competitionCategory,
         priorExperience:     form.priorExperience,
         queries:             form.queries,
-        hasAbstract:         form.submitAbstract && processedAbstracts.length > 0,
+        hasAbstract:         isSubmittingAbstract && processedAbstracts.length > 0,
         abstracts:           processedAbstracts,
         // Single-abstract backwards compatibility
         ...(processedAbstracts.length > 0 ? {
@@ -1305,10 +1314,34 @@ export function Register({ initialMode = "register" }) {
                     <p className="text-xs text-slate-500 mt-0.5">Please provide your details. These will also be attached to your abstract if you choose to submit one.</p>
                   </div>
 
-                  {form.submitAbstract && (
+                  {isAbstractOnly ? (
+                    <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs shadow-xs space-y-2 animate-fade-in leading-relaxed">
+                      <div className="flex items-start gap-2.5">
+                        <Icons.Alert className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div className="space-y-1 flex-1">
+                          <p>
+                            <strong>Notice:</strong> Due to venue capacity limitations, general delegate registration is now closed. The few remaining slots are reserved exclusively for delegates submitting an abstract.
+                          </p>
+                          <p className="text-amber-800">
+                            If you have already registered, you can submit your abstract via the{" "}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab("manage");
+                                window.scrollTo({ top: 120, behavior: "smooth" });
+                              }}
+                              className="font-bold underline text-amber-950 hover:text-black cursor-pointer inline-flex items-center gap-0.5"
+                            >
+                              "Already Registered?" section &rarr;
+                            </button>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : form.submitAbstract ? (
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-teal-50/80 border border-teal-200 text-xs text-teal-800">
                       <div className="flex items-center gap-2">
-                        <Icons.Doc className="w-4 h-4 flex-shrink-0 text-teal-600" />
+                        <Icons.File className="w-4 h-4 flex-shrink-0 text-teal-600" />
                         <span>
                           <strong>Abstract Submission Mode:</strong> Enter your presenter details below first. You will enter your abstract title, text, and manuscript in Step 3.
                         </span>
@@ -1324,7 +1357,7 @@ export function Register({ initialMode = "register" }) {
                         Already registered? &rarr;
                       </button>
                     </div>
-                  )}
+                  ) : null}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div className="form-group sm:col-span-2">
@@ -1511,47 +1544,93 @@ export function Register({ initialMode = "register" }) {
                     </p>
                   </div>
 
-                  {/* ── Abstract Toggle: Defaults to NO ── */}
+                  {/* ── Abstract Toggle: Defaults to NO unless isAbstractOnly ── */}
                   <div className="p-5 rounded-2xl border-2 border-slate-200 bg-slate-50/60 space-y-4">
-                    <label className="block text-sm font-bold text-slate-900">
-                      Would you like to submit a Scientific Abstract for IMF 2026?
-                    </label>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <label className="block text-sm font-bold text-slate-900">
+                        Would you like to submit a Scientific Abstract for IMF 2026?
+                      </label>
+                      {isAbstractOnly && (
+                        <span className="text-[11px] font-bold text-purple-800 bg-purple-100 border border-purple-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 self-start sm:self-auto">
+                          <Icons.Alert className="w-3 h-3 text-purple-600 flex-shrink-0" />
+                          Abstract Required
+                        </span>
+                      )}
+                    </div>
+
+                    {isAbstractOnly && (
+                      <div className="p-3.5 rounded-xl bg-purple-50/80 border border-purple-200 text-purple-900 text-xs flex items-start gap-2.5 font-medium animate-fade-in leading-relaxed">
+                        <Icons.Alert className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <strong>Notice:</strong> Due to venue capacity limitations, general delegate registration is now closed. The few remaining slots are reserved exclusively for delegates submitting an abstract. If you have already registered, you can submit your abstract via the{" "}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab("manage");
+                              window.scrollTo({ top: 120, behavior: "smooth" });
+                            }}
+                            className="font-bold underline text-purple-950 hover:text-black cursor-pointer"
+                          >
+                            "Already Registered?" section
+                          </button>
+                          .
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* NO Option (Default) */}
+                      {/* NO Option (Disabled if isAbstractOnly) */}
                       <div
-                        onClick={() => set("submitAbstract", false)}
-                        className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
-                          !form.submitAbstract
-                            ? "bg-white border-sky-600 shadow-sm ring-1 ring-sky-600"
-                            : "bg-white/60 border-slate-200 hover:border-slate-300"
+                        onClick={() => {
+                          if (!isAbstractOnly) set("submitAbstract", false);
+                        }}
+                        className={`p-4 rounded-xl border-2 transition-all flex items-start gap-3 ${
+                          isAbstractOnly
+                            ? "bg-slate-100/70 border-slate-200 opacity-60 cursor-not-allowed"
+                            : !form.submitAbstract
+                            ? "bg-white border-sky-600 shadow-sm ring-1 ring-sky-600 cursor-pointer"
+                            : "bg-white/60 border-slate-200 hover:border-slate-300 cursor-pointer"
                         }`}
+                        title={isAbstractOnly ? "Attendee-only registration is currently paused. An abstract is required." : ""}
                       >
                         <input
                           type="radio"
                           name="submitAbstractRadio"
-                          checked={!form.submitAbstract}
-                          onChange={() => set("submitAbstract", false)}
-                          className="w-4 h-4 accent-sky-600 mt-0.5"
+                          disabled={isAbstractOnly}
+                          checked={!form.submitAbstract && !isAbstractOnly}
+                          onChange={() => {
+                            if (!isAbstractOnly) set("submitAbstract", false);
+                          }}
+                          className={`w-4 h-4 mt-0.5 ${isAbstractOnly ? "cursor-not-allowed accent-slate-400" : "accent-sky-600"}`}
                         />
                         <div>
-                          <div className="text-xs font-bold text-slate-900">
-                            No, register as festival attendee only
-                            <span className="ml-2 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase">
-                              Default
+                          <div className="text-xs font-bold text-slate-900 flex flex-wrap items-center gap-1.5">
+                            <span className={isAbstractOnly ? "text-slate-400" : ""}>
+                              No, register as festival attendee only
                             </span>
+                            {isAbstractOnly ? (
+                              <span className="text-[10px] bg-rose-100 text-rose-700 border border-rose-200 px-1.5 py-0.5 rounded font-bold uppercase">
+                                Disabled
+                              </span>
+                            ) : (
+                              <span className="ml-1 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase">
+                                Default
+                              </span>
+                            )}
                           </div>
-                          <div className="text-[11px] text-slate-500 mt-0.5">
-                            You can always submit an abstract later using your email via the "Already Registered" button.
+                          <div className={`text-[11px] mt-0.5 ${isAbstractOnly ? "text-slate-400" : "text-slate-500"}`}>
+                            {isAbstractOnly
+                              ? "Registration is currently restricted to delegates submitting a scientific abstract."
+                              : "You can always submit an abstract later using your email via the \"Already Registered\" button."}
                           </div>
                         </div>
                       </div>
 
-                      {/* YES Option */}
+                      {/* YES Option (Default and Required when isAbstractOnly) */}
                       <div
                         onClick={() => set("submitAbstract", true)}
                         className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
-                          form.submitAbstract
+                          form.submitAbstract || isAbstractOnly
                             ? "bg-teal-50/70 border-teal-600 shadow-sm ring-1 ring-teal-600"
                             : "bg-white/60 border-slate-200 hover:border-slate-300"
                         }`}
@@ -1559,13 +1638,18 @@ export function Register({ initialMode = "register" }) {
                         <input
                           type="radio"
                           name="submitAbstractRadio"
-                          checked={form.submitAbstract}
+                          checked={form.submitAbstract || isAbstractOnly}
                           onChange={() => set("submitAbstract", true)}
                           className="w-4 h-4 accent-teal-600 mt-0.5"
                         />
                         <div>
-                          <div className="text-xs font-bold text-slate-900">
-                            Yes, I want to submit a Scientific Abstract
+                          <div className="text-xs font-bold text-slate-900 flex flex-wrap items-center gap-1.5">
+                            <span>Yes, I want to submit a Scientific Abstract</span>
+                            {isAbstractOnly ? (
+                              <span className="text-[10px] bg-teal-100 text-teal-800 border border-teal-200 px-1.5 py-0.5 rounded font-bold uppercase">
+                                Required (Default)
+                              </span>
+                            ) : null}
                           </div>
                           <div className="text-[11px] text-slate-500 mt-0.5">
                             Open abstract fields. Your author &amp; contact info will be automatically attached.

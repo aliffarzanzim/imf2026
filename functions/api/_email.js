@@ -444,3 +444,171 @@ export function buildUpdateConfirmationEmail({ fullName, regNumber, abstractNumb
 </html>
   `.trim();
 }
+
+/**
+ * Generate Poster Presentation Selection & Guidelines HTML Email
+ * Sent only when an abstract is submitted with an uploaded file
+ */
+export function buildPosterSelectionEmail({ fullName = "Participant", regNumber = "", abstractTitle = "" }) {
+  const safeName = escapeHtml(fullName || "Participant");
+  const safeReg = escapeHtml(regNumber || "");
+  const safeTitle = escapeHtml(abstractTitle || "");
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMF 2026 — Abstract Selected for Poster Presentation</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px 12px; color: #1e293b; -webkit-font-smoothing: antialiased;">
+  <div style="max-width: 620px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);">
+    
+    <!-- Header Banner -->
+    <div style="background: linear-gradient(135deg, #0b1c3d 0%, #0f766e 100%); padding: 36px 28px; text-align: center; color: #ffffff;">
+      <div style="display: inline-block; padding: 4px 12px; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 9999px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px;">
+        Scientific Committee Notification
+      </div>
+      <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.25;">
+        Internal Medicine Festival 2026
+      </h1>
+      <p style="margin: 8px 0 0 0; font-size: 14px; color: #ccfbf1; font-weight: 500;">
+        Poster Presentation Selection &amp; Guidelines
+      </p>
+    </div>
+
+    <!-- Main Body -->
+    <div style="padding: 32px 28px;">
+      
+      <!-- Greeting -->
+      <p style="font-size: 15px; margin: 0 0 16px 0; color: #334155;">
+        Dear <strong>${safeName}</strong>,
+      </p>
+
+      <!-- Selection Announcement Card -->
+      <div style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border: 1.5px solid #86efac; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+        <div style="display: inline-block; background-color: #15803d; color: #ffffff; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 6px; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 10px;">
+          ✓ Abstract Selected
+        </div>
+        <p style="font-size: 14px; line-height: 1.65; margin: 0; color: #166534; font-weight: 500;">
+          We are pleased to inform you that your abstract has been selected for <strong>poster presentation</strong> at the <strong>Internal Medicine Festival 2026</strong>, organized by <strong>DMC IMIG</strong>, <strong>ACP Bangladesh Chapter</strong>, and <strong>Bangladesh Society of Medicine (BSM)</strong>.
+        </p>
+      </div>
+
+      <!-- Registration & Abstract Title Reference Card (No Abstract ID) -->
+      ${safeReg || safeTitle ? `
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 20px; margin-bottom: 28px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          ${safeReg ? `
+          <tr>
+            <td style="padding: 4px 0; color: #64748b; width: 30%; font-weight: 500;">Registration ID:</td>
+            <td style="padding: 4px 0; color: #0f172a; font-weight: 700; font-family: monospace;">${safeReg}</td>
+          </tr>` : ""}
+          ${safeTitle ? `
+          <tr>
+            <td style="padding: 6px 0 0 0; color: #64748b; font-weight: 500; vertical-align: top;">Abstract Title:</td>
+            <td style="padding: 6px 0 0 0; color: #0f172a; font-weight: 700; line-height: 1.4;">${safeTitle}</td>
+          </tr>` : ""}
+        </table>
+      </div>
+      ` : ""}
+
+      <!-- Guidelines Header -->
+      <div style="border-top: 2px solid #e2e8f0; padding-top: 24px; margin-bottom: 20px; text-align: center;">
+        <div style="display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #0f766e; background: #ccfbf1; padding: 4px 14px; border-radius: 9999px;">
+          Official Guidelines
+        </div>
+        <h2 style="margin: 10px 0 4px 0; font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: -0.3px;">
+          POSTER PRESENTATION GUIDELINES
+        </h2>
+        <p style="margin: 0; font-size: 13px; color: #64748b; font-style: italic;">
+          Internal Medicine Festival 2026 &bull; “Inspiring the Future of Internal Medicine”
+        </p>
+        <div style="margin-top: 8px;">
+          <span style="display: inline-block; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 3px 12px; border-radius: 6px; font-size: 12px; font-weight: 700;">
+            Event Date: 17 September 2026
+          </span>
+        </div>
+      </div>
+
+      <!-- Guideline Item 1: Abstract Submission -->
+      <div style="margin-bottom: 18px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 18px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 800; color: #0b1c3d;">
+          <span style="background: #e0f2fe; color: #0369a1; width: 22px; height: 22px; border-radius: 50%; display: inline-block; text-align: center; line-height: 22px; font-size: 12px; margin-right: 6px;">1</span>
+          Abstract Submission
+        </h3>
+        <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.65; color: #475569;">
+          <li style="margin-bottom: 5px;">All participants interested in poster presentation must submit their abstract online first through the official registration/abstract submission portal.</li>
+          <li><strong>Abstract submission deadline:</strong> <span style="color: #dc2626; font-weight: 700;">14 September 2026</span>.</li>
+        </ul>
+      </div>
+
+      <!-- Guideline Item 2: Poster Preparation & Printing -->
+      <div style="margin-bottom: 18px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 18px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 800; color: #0b1c3d;">
+          <span style="background: #e0f2fe; color: #0369a1; width: 22px; height: 22px; border-radius: 50%; display: inline-block; text-align: center; line-height: 22px; font-size: 12px; margin-right: 6px;">2</span>
+          Poster Preparation &amp; Printing
+        </h3>
+        <p style="margin: 0 0 8px 0; font-size: 13px; color: #475569;">Participants are requested to prepare and print their posters according to the following specifications:</p>
+        <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.65; color: #475569;">
+          <li style="margin-bottom: 5px;"><strong style="color: #047857; background: #ecfdf5; padding: 2px 6px; border-radius: 4px; border: 1px solid #a7f3d0;">A0 Portrait</strong> OR <strong style="color: #047857; background: #ecfdf5; padding: 2px 6px; border-radius: 4px; border: 1px solid #a7f3d0;">A1 Landscape</strong> format.</li>
+          <li style="margin-bottom: 5px;">Please ensure that the final printed poster follows the specified <strong>A0 Portrait</strong> or <strong>A1 Landscape</strong> dimensions.</li>
+          <li style="margin-bottom: 5px;">The poster should be clear, concise, and easy to read from a distance.</li>
+          <li>Use an appropriate font size and ensure that figures, tables, graphs, and images are clearly visible.</li>
+        </ul>
+      </div>
+
+      <!-- Guideline Item 3: Poster Display -->
+      <div style="margin-bottom: 18px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 18px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 800; color: #0b1c3d;">
+          <span style="background: #e0f2fe; color: #0369a1; width: 22px; height: 22px; border-radius: 50%; display: inline-block; text-align: center; line-height: 22px; font-size: 12px; margin-right: 6px;">3</span>
+          Poster Display
+        </h3>
+        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 5px 12px; margin-bottom: 10px; font-size: 12px; font-weight: 700; color: #0369a1; display: inline-block;">
+          Poster Display Date: 17 September 2026
+        </div>
+        <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.65; color: #475569;">
+          <li style="margin-bottom: 5px;">Please bring your printed poster to the venue on the day of the festival.</li>
+          <li style="margin-bottom: 5px;">Sticky dots/adhesive materials for attaching posters will be available at the venue.</li>
+          <li>Participants should mount their posters at the designated poster board assigned to them.</li>
+        </ul>
+      </div>
+
+      <!-- Guideline Item 4: Poster Presentation -->
+      <div style="margin-bottom: 22px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 18px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 800; color: #0b1c3d;">
+          <span style="background: #e0f2fe; color: #0369a1; width: 22px; height: 22px; border-radius: 50%; display: inline-block; text-align: center; line-height: 22px; font-size: 12px; margin-right: 6px;">4</span>
+          Poster Presentation
+        </h3>
+        <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.65; color: #475569;">
+          <li style="margin-bottom: 5px;">Presenters are expected to be present beside their posters during the designated poster presentation session.</li>
+          <li style="margin-bottom: 5px;">Presenters should be prepared to give a brief explanation of their work to the judges, faculty members, and attendees.</li>
+          <li style="margin-bottom: 5px;">Be ready to answer questions regarding your research/case report.</li>
+          <li>The exact poster number, presentation time, and judging schedule will be communicated to selected presenters.</li>
+        </ul>
+      </div>
+
+      <!-- Closing Sign-off -->
+      <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; font-size: 13px; line-height: 1.6; color: #475569;">
+        <p style="margin: 0 0 4px 0;">Best regards,</p>
+        <p style="margin: 0 0 2px 0; font-weight: 800; color: #0b1c3d; font-size: 14px;">Organizing Committee</p>
+        <p style="margin: 0 0 2px 0; font-weight: 600; color: #0f766e;">Internal Medicine Festival 2026</p>
+        <p style="margin: 0; font-size: 12px; color: #64748b;">
+          DMC IMIG &bull; ACP Bangladesh Chapter &bull; Bangladesh Society of Medicine
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Email Footer -->
+    <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 24px; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.5;">
+      This is an official communication regarding the National Internal Medicine Festival 2026.<br>
+      For any queries regarding poster presentations, reach out to the organizing team.
+    </div>
+
+  </div>
+</body>
+</html>
+  `.trim();
+}

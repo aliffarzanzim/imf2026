@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Icons } from "../assets/icons";
-import { getSystemConfig, getFestivalStats } from "../utils/api";
+import { getSystemConfig, getInitialSystemConfig, getFestivalStats } from "../utils/api";
 import imigLogo from "../assets/logos/imig.jpg";
 import acpLogo from "../assets/logos/acp.jpg";
 import bsmLogo from "../assets/logos/bsm.jpg";
@@ -118,7 +118,7 @@ function useSmoothCount(targetValue, duration = 2000) {
 export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
   // Synchronous countdown to eliminate initial render flicker / layout shift
   const [timeLeft, setTimeLeft] = useState(getInitialCountdown);
-  const [config, setConfig] = useState({ registration_open: true, abstract_edit_open: true });
+  const [config, setConfig] = useState(getInitialSystemConfig);
   const [stats, setStats] = useState({ totalRegistrations: 615, totalColleges: 34 });
 
   useEffect(() => {
@@ -230,25 +230,37 @@ export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
           </div>
 
           {/* Primary CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 mt-8 w-full max-w-md sm:max-w-none sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-6 sm:mt-8 w-full max-w-sm sm:max-w-none sm:w-auto">
             {/* Register Button */}
             {config.registration_open === false ? (
               <button
                 disabled
-                className="inline-flex items-center justify-center gap-2 px-8 py-3.5 text-base font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-xl cursor-not-allowed shadow-none"
+                className="inline-flex items-center justify-center gap-2 px-5 sm:px-8 py-3.5 text-sm sm:text-base font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-xl cursor-not-allowed shadow-none whitespace-nowrap"
                 title="Registration is currently closed by the organizing committee"
               >
-                <Icons.Lock className="w-4 h-4 text-slate-400" />
+                <Icons.Lock className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 <span>Registration Closed</span>
               </button>
             ) : (
               <button
                 id="open-register-btn"
                 onClick={onOpenRegister}
-                className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-bold text-white rounded-xl shadow-md bg-sky-600 hover:bg-sky-700 active:bg-sky-800 transition-colors"
+                className={`inline-flex items-center justify-center gap-2 sm:gap-2.5 px-5 sm:px-8 py-3.5 text-sm sm:text-base font-bold text-white rounded-xl shadow-md transition-colors whitespace-nowrap ${
+                  config.registration_abstract_only
+                    ? "bg-purple-700 hover:bg-purple-800 active:bg-purple-900 border border-purple-600"
+                    : "bg-sky-600 hover:bg-sky-700 active:bg-sky-800"
+                }`}
+                title={config.registration_abstract_only ? "Registration is open for abstract submitters only" : "Register for IMF 2026"}
               >
-                <span>Register for Festival</span>
-                <Icons.Back className="w-4 h-4 rotate-180" />
+                <span className="flex items-center gap-2 whitespace-nowrap">
+                  <span>Register for Festival</span>
+                  {config.registration_abstract_only && (
+                    <span className="text-[10px] uppercase tracking-wider font-extrabold bg-purple-950/80 border border-purple-300/40 text-purple-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                      Abstract Only
+                    </span>
+                  )}
+                </span>
+                <Icons.Back className="w-4 h-4 rotate-180 flex-shrink-0" />
               </button>
             )}
 
@@ -256,9 +268,9 @@ export function Hero({ onOpenRegister, onOpenAbstract, onOpenManage }) {
             <button
               id="open-manage-btn"
               onClick={onOpenManage || onOpenAbstract}
-              className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 text-base font-bold text-white rounded-xl shadow-md bg-teal-700 hover:bg-teal-800 active:bg-teal-900 border border-teal-800 transition-colors"
+              className="inline-flex items-center justify-center gap-2 sm:gap-2.5 px-5 sm:px-8 py-3.5 text-sm sm:text-base font-bold text-white rounded-xl shadow-md bg-teal-700 hover:bg-teal-800 active:bg-teal-900 border border-teal-800 transition-colors whitespace-nowrap"
             >
-              <Icons.Edit className="w-5 h-5 text-teal-100" />
+              <Icons.Edit className="w-4 h-4 sm:w-5 sm:h-5 text-teal-100 flex-shrink-0" />
               <span>Already Registered?</span>
             </button>
           </div>

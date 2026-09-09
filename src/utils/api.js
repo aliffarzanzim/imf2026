@@ -205,6 +205,13 @@ export async function updateRegistration(id, data) {
   });
 }
 
+export async function updateDelegateRole(id, role) {
+  return request("/api/admin/records", {
+    method: "PUT",
+    body: JSON.stringify({ id, role }),
+  });
+}
+
 export async function deleteRecord(type, id) {
   return request("/api/admin/records", {
     method: "DELETE",
@@ -218,8 +225,33 @@ export function getAdminDownloadUrl() {
 }
 
 // ── System Configuration & Feature Toggles ────────────────────
+export function getInitialSystemConfig() {
+  if (typeof window !== "undefined") {
+    if (window.__IMF_CONFIG__ && typeof window.__IMF_CONFIG__.registration_open === "boolean") {
+      return window.__IMF_CONFIG__;
+    }
+    try {
+      const cached = localStorage.getItem("imf_system_config");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed.registration_open === "boolean") {
+          return parsed;
+        }
+      }
+    } catch (_) {}
+  }
+  return { registration_open: true, abstract_edit_open: true, registration_abstract_only: false };
+}
+
 export async function getSystemConfig() {
-  return request("/api/config");
+  const config = await request("/api/config");
+  if (typeof window !== "undefined" && config && typeof config.registration_open === "boolean") {
+    window.__IMF_CONFIG__ = config;
+    try {
+      localStorage.setItem("imf_system_config", JSON.stringify(config));
+    } catch (_) {}
+  }
+  return config;
 }
 
 export async function getAdminConfig() {
@@ -227,10 +259,17 @@ export async function getAdminConfig() {
 }
 
 export async function updateAdminConfig(toggles) {
-  return request("/api/admin/config", {
+  const res = await request("/api/admin/config", {
     method: "POST",
     body: JSON.stringify(toggles),
   });
+  if (typeof window !== "undefined" && res && res.config) {
+    window.__IMF_CONFIG__ = res.config;
+    try {
+      localStorage.setItem("imf_system_config", JSON.stringify(res.config));
+    } catch (_) {}
+  }
+  return res;
 }
 
 // ── Public Statistics & Milestones ─────────────────────────────

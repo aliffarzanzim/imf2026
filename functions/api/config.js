@@ -6,7 +6,7 @@ export async function onRequestGet(context) {
     const { env } = context;
     if (!env.DB) {
       return new Response(
-        JSON.stringify({ registration_open: true, abstract_edit_open: true }),
+        JSON.stringify({ registration_open: true, abstract_edit_open: true, registration_abstract_only: false }),
         { headers: { "Content-Type": "application/json" } }
       );
     }
@@ -16,6 +16,7 @@ export async function onRequestGet(context) {
     const config = {
       registration_open: true,
       abstract_edit_open: true,
+      registration_abstract_only: false,
     };
 
     if (rows && rows.results) {
@@ -24,8 +25,15 @@ export async function onRequestGet(context) {
           config.registration_open = row.value === "true";
         } else if (row.key === "abstract_edit_open") {
           config.abstract_edit_open = row.value === "true";
+        } else if (row.key === "registration_abstract_only") {
+          config.registration_abstract_only = row.value === "true";
         }
       }
+    }
+
+    // Abstract-only registration can only be active if registration itself is open
+    if (config.registration_open === false) {
+      config.registration_abstract_only = false;
     }
 
     return new Response(JSON.stringify(config), {
@@ -36,7 +44,7 @@ export async function onRequestGet(context) {
     });
   } catch (err) {
     return new Response(
-      JSON.stringify({ registration_open: true, abstract_edit_open: true, error: err.message }),
+      JSON.stringify({ registration_open: true, abstract_edit_open: true, registration_abstract_only: false, error: err.message }),
       { headers: { "Content-Type": "application/json" } }
     );
   }

@@ -13,6 +13,7 @@ export function AdminConfigModal({ onClose, onConfigUpdated }) {
   // States: true = open/active, false = turned off/locked
   const [registrationOpen, setRegistrationOpen] = useState(true);
   const [abstractEditOpen, setAbstractEditOpen] = useState(true);
+  const [registrationAbstractOnly, setRegistrationAbstractOnly] = useState(false);
 
   useEffect(() => {
     function handleKeyDown(e) {
@@ -33,6 +34,9 @@ export function AdminConfigModal({ onClose, onConfigUpdated }) {
         if (typeof res.abstract_edit_open === "boolean") {
           setAbstractEditOpen(res.abstract_edit_open);
         }
+        if (typeof res.registration_abstract_only === "boolean") {
+          setRegistrationAbstractOnly(res.registration_abstract_only);
+        }
       } catch (err) {
         setError(err.message || "Failed to load current configuration.");
       } finally {
@@ -41,6 +45,22 @@ export function AdminConfigModal({ onClose, onConfigUpdated }) {
     }
     loadConfig();
   }, []);
+
+  function handleToggleRegistration() {
+    setRegistrationOpen((prev) => {
+      const next = !prev;
+      if (!next) {
+        // If turning off registration, automatically turn off abstract-only
+        setRegistrationAbstractOnly(false);
+      }
+      return next;
+    });
+  }
+
+  function handleToggleRegistrationAbstractOnly() {
+    if (!registrationOpen) return;
+    setRegistrationAbstractOnly((prev) => !prev);
+  }
 
   async function handleSave(e) {
     if (e) e.preventDefault();
@@ -51,6 +71,7 @@ export function AdminConfigModal({ onClose, onConfigUpdated }) {
       const res = await updateAdminConfig({
         registration_open: registrationOpen,
         abstract_edit_open: abstractEditOpen,
+        registration_abstract_only: registrationOpen ? registrationAbstractOnly : false,
       });
       setSuccess(true);
       if (onConfigUpdated && res.config) {
@@ -152,7 +173,7 @@ export function AdminConfigModal({ onClose, onConfigUpdated }) {
                   {/* Toggle Switch */}
                   <button
                     type="button"
-                    onClick={() => setRegistrationOpen((prev) => !prev)}
+                    onClick={handleToggleRegistration}
                     className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                       registrationOpen ? "bg-emerald-600" : "bg-slate-300"
                     }`}
@@ -168,7 +189,79 @@ export function AdminConfigModal({ onClose, onConfigUpdated }) {
                 </div>
               </div>
 
-              {/* Toggle 2: Abstract Submission & Delegate Editing */}
+              {/* Toggle 2: Abstract Submission Only Registration (Sub-toggle of Registration) */}
+              <div
+                className={`p-4 rounded-2xl border transition-all space-y-3 ${
+                  !registrationOpen
+                    ? "border-slate-200 bg-slate-100/60 opacity-60"
+                    : "border-slate-200 bg-slate-50/70 hover:bg-slate-50"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900">
+                        Enable Registration for Abstract submission only
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                          !registrationOpen
+                            ? "bg-slate-100 text-slate-400 border-slate-200"
+                            : registrationAbstractOnly
+                            ? "bg-purple-50 text-purple-700 border-purple-200 font-extrabold"
+                            : "bg-slate-100 text-slate-600 border-slate-200"
+                        }`}
+                      >
+                        {!registrationOpen
+                          ? "Disabled (Reg Inactive)"
+                          : registrationAbstractOnly
+                          ? "Active (Abstract Required)"
+                          : "Off (General Reg)"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      {!registrationOpen ? (
+                        <span className="text-amber-700 font-medium">
+                          Can only be enabled when New Delegate Registration is active.
+                        </span>
+                      ) : registrationAbstractOnly ? (
+                        "Delegates cannot complete registration without submitting an abstract. Attendee-only option will be disabled."
+                      ) : (
+                        "Standard registration: delegates may register as attendee-only or optionally submit an abstract."
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Toggle Switch */}
+                  <button
+                    type="button"
+                    disabled={!registrationOpen}
+                    onClick={handleToggleRegistrationAbstractOnly}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      !registrationOpen
+                        ? "bg-slate-200 cursor-not-allowed"
+                        : registrationAbstractOnly
+                        ? "bg-purple-600 cursor-pointer"
+                        : "bg-slate-300 cursor-pointer"
+                    }`}
+                    role="switch"
+                    aria-checked={registrationAbstractOnly}
+                    title={
+                      !registrationOpen
+                        ? "Activate New Delegate Registration first to enable this option"
+                        : "Toggle abstract-only registration requirement"
+                    }
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                        registrationAbstractOnly && registrationOpen ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Toggle 3: Abstract Submission & Delegate Editing */}
               <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-all space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>

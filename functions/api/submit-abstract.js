@@ -1,4 +1,6 @@
 // functions/api/submit-abstract.js
+import { sendEmail, buildPosterSelectionEmail } from "./_email.js";
+
 export async function onRequestPost(context) {
   try {
     const { request, env } = context;
@@ -77,6 +79,28 @@ export async function onRequestPost(context) {
       data.presentationFileKey ? String(data.presentationFileKey).trim() : null,
       data.presentationFileName ? String(data.presentationFileName).trim() : null
     ).run();
+
+    // Send Poster Presentation Selection & Guidelines email
+    try {
+      const emailPromise = sendEmail({
+        env,
+        to: data.email.trim().toLowerCase(),
+        subject: "IMF 2026 — Abstract Selected for Poster Presentation",
+        html: buildPosterSelectionEmail({
+          fullName: data.fullName.trim(),
+          regNumber: data.regNumber ? String(data.regNumber).trim() : "",
+          abstractTitle: data.title.trim(),
+        }),
+      });
+
+      if (context.waitUntil && typeof context.waitUntil === "function") {
+        context.waitUntil(emailPromise);
+      } else {
+        emailPromise.catch((e) => console.error("[Poster Email Error]", e));
+      }
+    } catch (emailErr) {
+      console.error("[Poster Email Dispatch Error]", emailErr);
+    }
 
     return new Response(
       JSON.stringify({ success: true, abstractNumber }),

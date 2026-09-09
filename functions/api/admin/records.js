@@ -20,6 +20,11 @@ export async function onRequestGet(context) {
       );
     }
 
+    // Ensure role column exists dynamically in registrations
+    try {
+      await env.DB.prepare("ALTER TABLE registrations ADD COLUMN role TEXT DEFAULT 'PARTICIPANT'").run();
+    } catch (_) {}
+
     const { results: regResults } = await env.DB.prepare(
       "SELECT * FROM registrations ORDER BY id DESC"
     ).all();
@@ -33,6 +38,7 @@ export async function onRequestGet(context) {
       }
       return {
         ...r,
+        role: r.role || "PARTICIPANT",
         activities: parsedActivities,
       };
     });
@@ -65,8 +71,13 @@ export async function onRequestPut(context) {
       );
     }
 
+    // Ensure role column exists dynamically in registrations
+    try {
+      await env.DB.prepare("ALTER TABLE registrations ADD COLUMN role TEXT DEFAULT 'PARTICIPANT'").run();
+    } catch (_) {}
+
     const body = await request.json();
-    const { id, fullName, institution, batch, academicYear, phone } = body;
+    const { id, fullName, institution, batch, academicYear, phone, role } = body;
 
     if (!id) {
       return new Response(
@@ -75,9 +86,20 @@ export async function onRequestPut(context) {
       );
     }
 
+    // Role-only update (fast path for organiser promotion/demotion)
+    if (role !== undefined && fullName === undefined) {
+      const cleanRole = String(role).toUpperCase().includes("ORG") ? "ORGANISER" : "PARTICIPANT";
+      await env.DB.prepare("UPDATE registrations SET role = ? WHERE id = ?").bind(cleanRole, id).run();
+      return new Response(
+        JSON.stringify({ success: true, role: cleanRole }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Full delegate detail update
     await env.DB.prepare(`
       UPDATE registrations
-      SET full_name = ?, institution = ?, batch = ?, academic_year = ?, phone = ?
+      SET full_name = ?, institution = ?, batch = ?, academic_year = ?, phone = ?, role = COALESCE(?, role, 'PARTICIPANT')
       WHERE id = ?
     `).bind(
       fullName || "",
@@ -85,6 +107,7 @@ export async function onRequestPut(context) {
       batch || "",
       academicYear || "",
       phone || "",
+      role ? (String(role).toUpperCase().includes("ORG") ? "ORGANISER" : "PARTICIPANT") : null,
       id
     ).run();
 

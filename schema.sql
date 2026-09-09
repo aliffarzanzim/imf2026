@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS registrations (
   competition_category TEXT,
   prior_experience     TEXT,
   queries              TEXT,
+  role                 TEXT    DEFAULT 'PARTICIPANT', -- 'PARTICIPANT' or 'ORGANISER'
+  verify_sig           TEXT,   -- Cryptographic badge verification signature
   created_at           DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -52,6 +54,8 @@ CREATE TABLE IF NOT EXISTS abstracts (
 CREATE INDEX IF NOT EXISTS idx_reg_email      ON registrations(email);
 CREATE INDEX IF NOT EXISTS idx_reg_phone      ON registrations(phone);
 CREATE INDEX IF NOT EXISTS idx_reg_batch      ON registrations(batch);
+CREATE INDEX IF NOT EXISTS idx_reg_role       ON registrations(role);
+CREATE INDEX IF NOT EXISTS idx_reg_verify_sig ON registrations(verify_sig);
 CREATE INDEX IF NOT EXISTS idx_abs_reg_number ON abstracts(reg_number);
 CREATE INDEX IF NOT EXISTS idx_abs_email      ON abstracts(email);
 CREATE INDEX IF NOT EXISTS idx_abs_phone      ON abstracts(phone);
@@ -76,3 +80,4 @@ CREATE TABLE IF NOT EXISTS system_config (
 );
 INSERT OR IGNORE INTO system_config (key, value) VALUES ('registration_open', 'true');
 INSERT OR IGNORE INTO system_config (key, value) VALUES ('abstract_edit_open', 'true');
+INSERT OR IGNORE INTO system_config (key, value) VALUES ('registration_abstract_only', 'false');

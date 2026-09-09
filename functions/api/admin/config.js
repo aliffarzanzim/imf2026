@@ -36,6 +36,7 @@ export async function onRequest(context) {
     const config = {
       registration_open: true,
       abstract_edit_open: true,
+      registration_abstract_only: false,
     };
     if (rows && rows.results) {
       for (const row of rows.results) {
@@ -43,8 +44,14 @@ export async function onRequest(context) {
           config.registration_open = row.value === "true";
         } else if (row.key === "abstract_edit_open") {
           config.abstract_edit_open = row.value === "true";
+        } else if (row.key === "registration_abstract_only") {
+          config.registration_abstract_only = row.value === "true";
         }
       }
+    }
+    // Abstract-only registration can only be active if registration itself is open
+    if (config.registration_open === false) {
+      config.registration_abstract_only = false;
     }
     return new Response(JSON.stringify(config), {
       headers: { "Content-Type": "application/json" },
@@ -53,21 +60,36 @@ export async function onRequest(context) {
 
   if (request.method === "POST" || request.method === "PUT") {
     const body = await request.json().catch(() => ({}));
-    const { registration_open, abstract_edit_open } = body;
+    const { registration_open, abstract_edit_open, registration_abstract_only } = body;
 
     const updates = [];
+    let effectiveRegOpen = null;
+
     if (typeof registration_open === "boolean") {
+      effectiveRegOpen = registration_open;
       updates.push(
         env.DB.prepare(
           "INSERT INTO system_config (key, value, updated_at) VALUES ('registration_open', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP"
         ).bind(String(registration_open))
       );
     }
+
     if (typeof abstract_edit_open === "boolean") {
       updates.push(
         env.DB.prepare(
           "INSERT INTO system_config (key, value, updated_at) VALUES ('abstract_edit_open', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP"
         ).bind(String(abstract_edit_open))
+      );
+    }
+
+    // Abstract-only can only be true if registration is open
+    if (typeof registration_abstract_only === "boolean" || effectiveRegOpen === false) {
+      // If registration is being turned off, force abstract_only to false
+      const finalAbsOnly = (effectiveRegOpen === false) ? false : Boolean(registration_abstract_only);
+      updates.push(
+        env.DB.prepare(
+          "INSERT INTO system_config (key, value, updated_at) VALUES ('registration_abstract_only', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP"
+        ).bind(String(finalAbsOnly))
       );
     }
 
@@ -80,6 +102,7 @@ export async function onRequest(context) {
     const config = {
       registration_open: true,
       abstract_edit_open: true,
+      registration_abstract_only: false,
     };
     if (rows && rows.results) {
       for (const row of rows.results) {
@@ -87,8 +110,13 @@ export async function onRequest(context) {
           config.registration_open = row.value === "true";
         } else if (row.key === "abstract_edit_open") {
           config.abstract_edit_open = row.value === "true";
+        } else if (row.key === "registration_abstract_only") {
+          config.registration_abstract_only = row.value === "true";
         }
       }
+    }
+    if (config.registration_open === false) {
+      config.registration_abstract_only = false;
     }
 
     return new Response(JSON.stringify({ success: true, config }), {

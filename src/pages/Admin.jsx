@@ -5,6 +5,7 @@ import { Footer } from "../components/Footer";
 import { AdminTable } from "../components/AdminTable";
 import { ActivityParticipationModal } from "../components/ActivityParticipationModal";
 import { AdminConfigModal } from "../components/AdminConfigModal";
+import { OrganisersModal } from "../components/OrganisersModal";
 import { adminLogin, adminLogout, isAdminAuthed } from "../utils/api";
 import { Icons } from "../assets/icons";
 import { navigate } from "../utils/navigation";
@@ -18,6 +19,8 @@ export function Admin() {
   const [adminData, setAdminData] = useState({ registrations: [], abstracts: [] });
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showOrganisersModal, setShowOrganisersModal] = useState(false);
+  const [lastRoleUpdate, setLastRoleUpdate] = useState(null);
 
   useEffect(() => {
     setAuthed(isAdminAuthed());
@@ -46,6 +49,20 @@ export function Admin() {
     adminLogout();
     setAuthed(false);
     setPassword("");
+  }
+
+  const organiserCount = (adminData.registrations || []).filter(
+    (r) => r.role === "ORGANISER" || r.role === "Organiser"
+  ).length;
+
+  function handleRoleUpdated(id, newRole) {
+    setAdminData((prev) => ({
+      ...prev,
+      registrations: (prev.registrations || []).map((r) =>
+        r.id === id ? { ...r, role: newRole } : r
+      ),
+    }));
+    setLastRoleUpdate({ id, newRole, timestamp: Date.now() });
   }
 
   return (
@@ -165,38 +182,70 @@ export function Admin() {
                   </p>
                 </div>
 
-                <div className="flex items-center flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowActivityModal(true)}
-                    className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-400/30 transition-all flex items-center gap-1.5 shadow-sm"
-                    title="View detailed activity and competition breakdown"
-                  >
-                    <Icons.Activity className="w-3.5 h-3.5 text-teal-400" />
-                    <span>Activity &amp; Participation</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowConfigModal(true)}
-                    className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all flex items-center gap-1.5 shadow-xs"
-                    title="Portal access & feature toggles"
-                  >
-                    <Icons.Config className="w-3.5 h-3.5 text-slate-300" />
-                    <span>Config</span>
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-400/30 transition-all flex items-center gap-1.5"
-                  >
-                    <Icons.Logout className="w-3.5 h-3.5" />
-                    <span>Sign Out</span>
-                  </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowOrganisersModal(true)}
+                      className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-400/30 transition-all flex items-center gap-1.5 shadow-sm"
+                      title="Manage Festival Organisers"
+                    >
+                      <Icons.Badge className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Organisers</span>
+                      {organiserCount > 0 && (
+                        <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-400 text-slate-950">
+                          {organiserCount}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowConfigModal(true)}
+                      className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all flex items-center gap-1.5 shadow-xs"
+                      title="Portal access & feature toggles"
+                    >
+                      <Icons.Config className="w-3.5 h-3.5 text-slate-300" />
+                      <span>Config</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowActivityModal(true)}
+                      className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-400/30 transition-all flex items-center gap-1.5 shadow-sm"
+                      title="View detailed activity and competition breakdown"
+                    >
+                      <Icons.Activity className="w-3.5 h-3.5 text-teal-400" />
+                      <span>Activity &amp; Participation</span>
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-400/30 transition-all flex items-center gap-1.5"
+                    >
+                      <Icons.Logout className="w-3.5 h-3.5" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Main Interactive Table & Stats */}
-            <AdminTable onDataLoaded={setAdminData} />
+            <AdminTable
+              onDataLoaded={setAdminData}
+              onRoleUpdated={handleRoleUpdated}
+              externalRoleUpdate={lastRoleUpdate}
+            />
+
+            {/* Organisers Modal */}
+            {showOrganisersModal && (
+              <OrganisersModal
+                registrations={adminData.registrations}
+                onRoleUpdated={handleRoleUpdated}
+                onClose={() => setShowOrganisersModal(false)}
+              />
+            )}
 
             {/* Activity & Participation Modal */}
             {showActivityModal && (

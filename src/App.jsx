@@ -4,6 +4,7 @@ import { Home } from "./pages/Home";
 import { Register } from "./pages/Register";
 import { SubmitAbstract } from "./pages/SubmitAbstract";
 import { Admin } from "./pages/Admin";
+import { Verify } from "./pages/Verify";
 import { getCurrentRoute } from "./utils/navigation";
 
 class ErrorBoundary extends React.Component {
@@ -82,6 +83,8 @@ export function App() {
     pageContent = <Register initialMode="abstract" />;
   } else if (route === "admin") {
     pageContent = <Admin />;
+  } else if (route === "verify" || route.startsWith("verify")) {
+    pageContent = <Verify />;
   }
 
   return <ErrorBoundary>{pageContent}</ErrorBoundary>;

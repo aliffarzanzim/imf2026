@@ -18,11 +18,11 @@ export function navigate(path) {
 export function getCurrentRoute() {
   // Handle backwards compatibility for any incoming hash links like #/register
   if (window.location.hash) {
-    const hashClean = window.location.hash.replace(/^#\/?/, "");
-    if (hashClean) {
-      const cleanPath = `/${hashClean}`;
-      window.history.replaceState(null, "", cleanPath);
-      return hashClean.toLowerCase();
+    const rawHash = window.location.hash.replace(/^#\/?/, "");
+    const [hashPath] = rawHash.split("?");
+    const cleanHash = hashPath ? hashPath.replace(/^\/|\/$/g, "").toLowerCase() : "";
+    if (cleanHash) {
+      return cleanHash;
     } else {
       window.history.replaceState(null, "", "/");
       return "home";

@@ -21,6 +21,16 @@
     <!-- Render-blocking CSS to guarantee zero FOUC / styling flicker on initial frame -->
     <link rel="stylesheet" href="/src/styles/globals.css" />
     <link rel="stylesheet" href="/src/styles/tailwind.css" />
+
+    <!-- Instant Config Cache Initialization (eliminates any button toggle flicker) -->
+    <script>
+      try {
+        var _c = localStorage.getItem("imf_system_config");
+        if (_c && !window.__IMF_CONFIG__) {
+          window.__IMF_CONFIG__ = JSON.parse(_c);
+        }
+      } catch (_) {}
+    </script>
   </head>
   <body style="background-color: #f8fafc; margin: 0;">
     <div id="root"></div>

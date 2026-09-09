@@ -46,3 +46,9 @@ draft/
 
 # Local scratch
 scratch/
+
+# Local DNS exports & maintenance scripts
+aurum.eu.org.txt
+replace-passwords.txt
+scripts/
+

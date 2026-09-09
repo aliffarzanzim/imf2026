@@ -1,5 +1,4 @@
-// functions/api/update-registration.js
-import { sendEmail, buildUpdateConfirmationEmail } from "./_email.js";
+import { sendEmail, buildUpdateConfirmationEmail, buildPosterSelectionEmail } from "./_email.js";
 import { verifyDelegateToken } from "./_delegateAuth.js";
 
 function normalizePhone(phone) {
@@ -281,6 +280,7 @@ export async function onRequestPost(context) {
     // 2. Abstract submission or update (supports array of abstracts or single abstract)
     const abstractNumbers = [];
     let primaryAbstractNumber = null;
+    const newlyAddedAbstractsWithFiles = [];
 
     const abstractsToProcess = Array.isArray(absList)
       ? absList
@@ -434,6 +434,19 @@ export async function onRequestPost(context) {
           const newAbsNum = `IMF-ABS-${String(nextAbsSeq).padStart(4, "0")}`;
           abstractNumbers.push(newAbsNum);
           if (!primaryAbstractNumber) primaryAbstractNumber = newAbsNum;
+
+          const hasValidFile = Boolean(
+            item.r2FileKey &&
+            item.r2FileKey.trim() &&
+            item.r2FileKey !== "pending" &&
+            item.fileName &&
+            item.fileName.trim()
+          );
+          if (hasValidFile) {
+            newlyAddedAbstractsWithFiles.push({
+              title: item.title.trim(),
+            });
+          }
 
           changes.push({
             label: `Added New Abstract [${newAbsNum}]`,
@@ -596,6 +609,30 @@ export async function onRequestPost(context) {
       }
     } catch (emailErr) {
       console.error("[Update Email Dispatch Error]", emailErr);
+    }
+
+    // Send Poster Presentation Selection & Guidelines email for newly added abstracts with uploaded files
+    for (const abs of newlyAddedAbstractsWithFiles) {
+      try {
+        const posterPromise = sendEmail({
+          env,
+          to: updatedEmail.trim().toLowerCase(),
+          subject: "IMF 2026 — Abstract Selected for Poster Presentation",
+          html: buildPosterSelectionEmail({
+            fullName: updatedFullName,
+            regNumber: reg.reg_number,
+            abstractTitle: abs.title,
+          }),
+        });
+
+        if (context.waitUntil && typeof context.waitUntil === "function") {
+          context.waitUntil(posterPromise);
+        } else {
+          posterPromise.catch((e) => console.error("[Poster Email Error]", e));
+        }
+      } catch (posterErr) {
+        console.error("[Poster Email Dispatch Error]", posterErr);
+      }
     }
 
     return new Response(

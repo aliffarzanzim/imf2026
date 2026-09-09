@@ -5,6 +5,7 @@ import { Icons } from "../assets/icons";
 import {
   fetchAdminRecords,
   updateRegistration,
+  updateDelegateRole,
   deleteRecord,
   getAdminDownloadUrl,
   getAdminToken,
@@ -107,7 +108,7 @@ function StatCard({ label, value, sub, icon: Icon, gradient, textColor }) {
 /**
  * Full Delegate Profile & Submitted Abstracts Modal
  */
-function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDeleteAbstract }) {
+function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onToggleRole, onDeleteAbstract }) {
   const [activeSubTab, setActiveSubTab] = useState("overview");
 
   useEffect(() => {
@@ -128,6 +129,7 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDelete
     : (record.activities ? [record.activities] : []);
 
   const token = getAdminToken() || "";
+  const isOrganiser = record.role === "ORGANISER" || record.role === "Organiser";
 
   const content = (
     <div
@@ -152,6 +154,15 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDelete
                   </h3>
                   <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/30">
                     {record.reg_number}
+                  </span>
+                  <span
+                    className={`text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border shadow-xs ${
+                      isOrganiser
+                        ? "bg-amber-400 text-slate-950 border-amber-300 font-extrabold"
+                        : "bg-sky-500/20 text-sky-300 border-sky-400/30"
+                    }`}
+                  >
+                    {isOrganiser ? "★ Organiser" : "Participant"}
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 mt-0.5 flex items-center gap-2 flex-wrap">
@@ -468,14 +479,44 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDelete
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 flex-shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-outline text-xs py-2 px-4"
-          >
-            Close
-          </button>
+        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 flex-shrink-0 flex-wrap">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-outline text-xs py-2 px-4"
+            >
+              Close
+            </button>
+            {onToggleRole && (
+              <button
+                type="button"
+                onClick={() => onToggleRole(record)}
+                className={`text-xs py-2 px-3.5 rounded-xl font-bold transition-all flex items-center gap-1.5 shadow-xs ${
+                  isOrganiser
+                    ? "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
+                    : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                }`}
+                title={
+                  isOrganiser
+                    ? "Revert role to standard Participant"
+                    : "Appoint delegate as Festival Organiser"
+                }
+              >
+                {isOrganiser ? (
+                  <>
+                    <Icons.Close className="w-3.5 h-3.5" />
+                    <span>Revert to Participant</span>
+                  </>
+                ) : (
+                  <>
+                    <Icons.Badge className="w-3.5 h-3.5 text-emerald-200" />
+                    <span>Appoint as Organiser</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -496,13 +537,14 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onDelete
   return typeof document !== "undefined" ? createPortal(content, document.body) : content;
 }
 
-function EditModal({ record, onSave, onClose }) {
+function EditModal({ record, onRoleUpdated, onSave, onClose }) {
   const [form, setForm] = useState({
     fullName:     record.full_name || "",
     institution:  record.institution || "",
     batch:        record.batch || "",
     academicYear: record.academic_year || "",
     phone:        record.phone || "",
+    role:         record.role || "PARTICIPANT",
   });
   const [saving, setSaving] = useState(false);
 
@@ -524,6 +566,9 @@ function EditModal({ record, onSave, onClose }) {
     setSaving(true);
     try {
       await updateRegistration(record.id, form);
+      if (form.role && form.role !== record.role && typeof onRoleUpdated === "function") {
+        onRoleUpdated(record.id, form.role);
+      }
       onSave();
     } finally {
       setSaving(false);
@@ -558,6 +603,18 @@ function EditModal({ record, onSave, onClose }) {
               onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
               required
             />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Role Designation</label>
+            <select
+              className="form-select font-semibold"
+              value={form.role}
+              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+            >
+              <option value="PARTICIPANT">Participant (Standard Delegate)</option>
+              <option value="ORGANISER">Organiser (Festival Committee)</option>
+            </select>
           </div>
 
           <div className="form-group">
@@ -627,11 +684,12 @@ function EditModal({ record, onSave, onClose }) {
   return typeof document !== "undefined" ? createPortal(content, document.body) : content;
 }
 
-export function AdminTable({ onDataLoaded }) {
+export function AdminTable({ onDataLoaded, onRoleUpdated, externalRoleUpdate }) {
   const [data, setData]               = useState({ registrations: [], abstracts: [] });
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState("");
   const [filterType, setFilterType]   = useState("all"); // "all", "with_abstracts", "no_abstracts"
+  const [roleFilter, setRoleFilter]   = useState(""); // "", "organisers", "participants"
   const [search, setSearch]           = useState("");
   const [batchFilter, setBatchFilter] = useState("");
   const [viewRecord, setViewRecord]   = useState(null);
@@ -659,6 +717,43 @@ export function AdminTable({ onDataLoaded }) {
 
   useEffect(() => { load(); }, []);
 
+  // Sync when external role updates happen (e.g. from OrganisersModal)
+  useEffect(() => {
+    if (externalRoleUpdate && externalRoleUpdate.id) {
+      setData((prev) => ({
+        ...prev,
+        registrations: (prev.registrations || []).map((r) =>
+          r.id === externalRoleUpdate.id ? { ...r, role: externalRoleUpdate.newRole } : r
+        ),
+      }));
+      if (viewRecord && viewRecord.id === externalRoleUpdate.id) {
+        setViewRecord((prev) => ({ ...prev, role: externalRoleUpdate.newRole }));
+      }
+    }
+  }, [externalRoleUpdate]);
+
+  async function handleToggleRole(record) {
+    const isCurrentlyOrganiser = record.role === "ORGANISER" || record.role === "Organiser";
+    const nextRole = isCurrentlyOrganiser ? "PARTICIPANT" : "ORGANISER";
+    try {
+      await updateDelegateRole(record.id, nextRole);
+      setData((prev) => ({
+        ...prev,
+        registrations: (prev.registrations || []).map((r) =>
+          r.id === record.id ? { ...r, role: nextRole } : r
+        ),
+      }));
+      if (viewRecord && viewRecord.id === record.id) {
+        setViewRecord((prev) => ({ ...prev, role: nextRole }));
+      }
+      if (typeof onRoleUpdated === "function") {
+        onRoleUpdated(record.id, nextRole);
+      }
+    } catch (e) {
+      setError(e.message || "Failed to update role");
+    }
+  }
+
   // Match abstracts to a delegate
   function getAbstractsForDelegate(reg) {
     if (!reg) return [];
@@ -669,7 +764,7 @@ export function AdminTable({ onDataLoaded }) {
     });
   }
 
-  // Filter delegates by search, batch, and abstract status
+  // Filter delegates by search, batch, role, and abstract status
   const filtered = useMemo(() => {
     return (data.registrations || []).filter((r) => {
       const userAbs = getAbstractsForDelegate(r);
@@ -693,21 +788,27 @@ export function AdminTable({ onDataLoaded }) {
         (r.email || "").toLowerCase().includes(q) ||
         (r.phone || "").toLowerCase().includes(q) ||
         (r.competition_category || "").toLowerCase().includes(q) ||
+        (r.role || "").toLowerCase().includes(q) ||
         absTitles.includes(q) ||
         absNumbers.includes(q);
 
       const matchBatch = !batchFilter || r.batch === batchFilter;
-      return matchSearch && matchBatch;
+      const matchRole =
+        !roleFilter ||
+        (roleFilter === "organisers" && (r.role === "ORGANISER" || r.role === "Organiser")) ||
+        (roleFilter === "participants" && r.role !== "ORGANISER" && r.role !== "Organiser");
+
+      return matchSearch && matchBatch && matchRole;
     });
-  }, [data.registrations, data.abstracts, search, batchFilter, filterType]);
+  }, [data.registrations, data.abstracts, search, batchFilter, roleFilter, filterType]);
 
   // Reset to page 1 whenever any filter or page size changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, batchFilter, filterType, pageSize]);
+  }, [search, batchFilter, roleFilter, filterType, pageSize]);
 
-  const effectivePageSize = Number(pageSize) || 25;
   const totalItems = filtered.length;
+  const effectivePageSize = pageSize === 0 ? Math.max(1, totalItems) : (Number(pageSize) || 25);
   const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(totalItems / effectivePageSize));
   const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
 
@@ -948,6 +1049,16 @@ export function AdminTable({ onDataLoaded }) {
           </div>
 
           <select
+            className="form-select text-xs py-2.5 sm:w-40"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            <option value="">All Roles</option>
+            <option value="organisers">Organisers Only</option>
+            <option value="participants">Participants Only</option>
+          </select>
+
+          <select
             className="form-select text-xs py-2.5 sm:w-44"
             value={batchFilter}
             onChange={(e) => setBatchFilter(e.target.value)}
@@ -1026,8 +1137,15 @@ export function AdminTable({ onDataLoaded }) {
                               {(r.full_name || "?").charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <div className="font-bold text-slate-900 leading-tight">
-                                {r.full_name}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-slate-900 leading-tight">
+                                  {r.full_name}
+                                </span>
+                                {(r.role === "ORGANISER" || r.role === "Organiser") && (
+                                  <span className="inline-flex items-center px-1.5 py-0.2 rounded-md text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 tracking-wide uppercase shadow-xs">
+                                    ★ Organiser
+                                  </span>
+                                )}
                               </div>
                               <div className="text-[11px] text-slate-400">{r.email}</div>
                             </div>
@@ -1156,8 +1274,15 @@ export function AdminTable({ onDataLoaded }) {
                           {(r.full_name || "?").charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm font-bold text-slate-900 leading-tight truncate">
-                            {r.full_name}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm font-bold text-slate-900 leading-tight truncate">
+                              {r.full_name}
+                            </span>
+                            {(r.role === "ORGANISER" || r.role === "Organiser") && (
+                              <span className="inline-flex items-center px-1.5 py-0.2 rounded-md text-[9px] font-black bg-amber-100 text-amber-900 border border-amber-300 tracking-wide uppercase shadow-xs">
+                                ★ Organiser
+                              </span>
+                            )}
                           </div>
                           <div className="text-[11px] text-slate-400 truncate">{r.email}</div>
                         </div>
@@ -1257,7 +1382,7 @@ export function AdminTable({ onDataLoaded }) {
             {/* Left: Range and Per-Page Selector */}
             <div className="flex items-center gap-3 flex-wrap">
               <span>
-                Showing <strong>{totalItems === 0 ? 0 : (validCurrentPage - 1) * effectivePageSize + 1}</strong>–<strong>{pageSize === 0 ? totalItems : Math.min(validCurrentPage * effectivePageSize, totalItems)}</strong> of <strong>{totalItems}</strong> {totalItems === 1 ? "delegate" : "delegates"}
+                Showing <strong>{totalItems === 0 ? 0 : (pageSize === 0 ? 1 : (validCurrentPage - 1) * effectivePageSize + 1)}</strong>–<strong>{pageSize === 0 ? totalItems : Math.min(validCurrentPage * effectivePageSize, totalItems)}</strong> of <strong>{totalItems}</strong> {totalItems === 1 ? "delegate" : "delegates"}
                 {totalItems !== (data.registrations || []).length && (
                   <span className="text-slate-400 text-[11px] ml-1">
                     (filtered from {(data.registrations || []).length} total)
@@ -1265,30 +1390,38 @@ export function AdminTable({ onDataLoaded }) {
                 )}
               </span>
 
-              <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
-                <span className="text-slate-400 text-[11px]">Show:</span>
-                <select
-                  value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value))}
-                  className="form-select py-1 px-2 text-xs rounded-md border-slate-200 bg-white"
-                >
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                  <option value={0}>All</option>
-                </select>
+              <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
+                <label htmlFor="admin-page-size" className="text-slate-600 font-medium text-xs whitespace-nowrap">
+                  Show:
+                </label>
+                <div className="relative inline-flex items-center">
+                  <select
+                    id="admin-page-size"
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="appearance-none bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 text-slate-700 font-semibold text-xs rounded-lg pl-2.5 pr-7 py-1 shadow-xs transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 cursor-pointer"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value={0}>All</option>
+                  </select>
+                  <span className="pointer-events-none absolute right-2 text-slate-400 flex items-center justify-center">
+                    <Icons.ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                  </span>
+                </div>
               </div>
             </div>
 
             {/* Right: Page Navigation Controls */}
             {pageSize !== 0 && totalPages > 1 && (
-              <div className="flex items-center flex-wrap justify-center gap-1">
+              <div className="flex items-center flex-wrap justify-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setCurrentPage(1)}
                   disabled={validCurrentPage === 1}
-                  className="px-2.5 py-1 rounded-md border border-slate-200 bg-white font-medium hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs"
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white font-medium hover:bg-slate-50 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs shadow-xs"
                   title="First Page"
                 >
                   «
@@ -1297,7 +1430,7 @@ export function AdminTable({ onDataLoaded }) {
                   type="button"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={validCurrentPage === 1}
-                  className="px-2.5 py-1 rounded-md border border-slate-200 bg-white font-medium hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs"
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white font-medium hover:bg-slate-50 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs shadow-xs"
                   title="Previous Page"
                 >
                   ‹ Prev
@@ -1311,7 +1444,7 @@ export function AdminTable({ onDataLoaded }) {
                   type="button"
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={validCurrentPage === totalPages}
-                  className="px-2.5 py-1 rounded-md border border-slate-200 bg-white font-medium hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs"
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white font-medium hover:bg-slate-50 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs shadow-xs"
                   title="Next Page"
                 >
                   Next ›
@@ -1320,7 +1453,7 @@ export function AdminTable({ onDataLoaded }) {
                   type="button"
                   onClick={() => setCurrentPage(totalPages)}
                   disabled={validCurrentPage === totalPages}
-                  className="px-2.5 py-1 rounded-md border border-slate-200 bg-white font-medium hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs"
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white font-medium hover:bg-slate-50 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-xs shadow-xs"
                   title="Last Page"
                 >
                   »
@@ -1338,6 +1471,7 @@ export function AdminTable({ onDataLoaded }) {
           abstracts={getAbstractsForDelegate(viewRecord)}
           onClose={() => setViewRecord(null)}
           onEdit={(rec) => { setViewRecord(null); setEditRecord(rec); }}
+          onToggleRole={handleToggleRole}
           onDeleteAbstract={(absId, absTitle) => {
             setConfirmDelete({
               type: "abstract",
@@ -1352,6 +1486,7 @@ export function AdminTable({ onDataLoaded }) {
       {editRecord && (
         <EditModal
           record={editRecord}
+          onRoleUpdated={onRoleUpdated}
           onSave={() => { setEditRecord(null); load(); }}
           onClose={() => setEditRecord(null)}
         />
