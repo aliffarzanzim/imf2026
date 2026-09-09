@@ -46,7 +46,7 @@ Official press-ready credentials designed for festival delegates and the organiz
       <sub><b>Alif Farzan Zim</b> &bull; Organiser (IMF-REG-0439)</sub>
     </td>
     <td align="center" width="50%">
-      <b>Participant Badge (First Registrant)</b><br><br>
+      <b>Participant Badge</b><br><br>
       <img src="chest-card-generation/chest-card-participant_hd.png" alt="IMF 2026 Participant Chest Card - Mahadi Hasan Siam" width="340" />
       <br><br>
       <sub><b>Mahadi Hasan Siam</b> &bull; Participant (IMF-REG-0006)</sub>
