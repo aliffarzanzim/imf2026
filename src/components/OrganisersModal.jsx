@@ -29,11 +29,11 @@ export function OrganisersModal({ registrations = [], onClose, onRoleUpdated }) 
     return Array.isArray(registrations) ? registrations : [];
   }, [registrations]);
 
-  // Current Organisers list (strictly descending order by ID)
+  // Current Organisers list (ascending order by ID: 0001, 0040, 0043...)
   const currentOrganisers = useMemo(() => {
     return safeRegistrations
       .filter((r) => r && (r.role === "ORGANISER" || r.role === "Organiser"))
-      .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+      .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
   }, [safeRegistrations]);
 
   // Filtered Organisers within modal
