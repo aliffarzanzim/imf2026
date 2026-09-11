@@ -187,7 +187,11 @@ export function QuizDashboard() {
         ws.onclose = () => {
           if (isUnmounted) return;
           setWsConnected(false);
-          setTimeout(connect, 3000);
+          if (wsUrl !== DEFAULT_WS_URL) {
+            setWsUrl(DEFAULT_WS_URL);
+          } else {
+            setTimeout(connect, 3000);
+          }
         };
 
         ws.onerror = (err) => {

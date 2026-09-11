@@ -31,7 +31,40 @@ export function QuizEntry() {
   // Poll for active tunnel URL from /api/quiz-config and test connection
   useEffect(() => {
     let isMounted = true;
-    let testWs = null;
+    let sockets = [];
+
+    function tryConnect(url) {
+      if (!url) return;
+      try {
+        const ws = new WebSocket(url);
+        sockets.push(ws);
+        ws.onopen = () => {
+          if (!isMounted) return;
+          setWsConnected(true);
+          setWsUrl(url);
+          localStorage.setItem("imf_quiz_ws", url);
+          // Close other sockets
+          sockets.forEach((s) => {
+            if (s !== ws && s.readyState === WebSocket.OPEN) s.close();
+          });
+        };
+        ws.onerror = () => {
+          // If the tunnel URL failed and we haven't tested localhost, try localhost
+          if (url !== DEFAULT_WS_URL && !sockets.some((s) => s.url.includes("3001"))) {
+            tryConnect(DEFAULT_WS_URL);
+          }
+        };
+        ws.onclose = () => {
+          if (isMounted && sockets.every((s) => s.readyState !== WebSocket.OPEN)) {
+            setWsConnected(false);
+          }
+        };
+      } catch (e) {
+        if (url !== DEFAULT_WS_URL) {
+          tryConnect(DEFAULT_WS_URL);
+        }
+      }
+    }
 
     async function checkBackend() {
       try {
@@ -39,9 +72,9 @@ export function QuizEntry() {
         if (res.ok) {
           const data = await res.json();
           if (data.ws_url && isMounted) {
-            setWsUrl(data.ws_url);
-            localStorage.setItem("imf_quiz_ws", data.ws_url);
-            testConnection(data.ws_url);
+            tryConnect(data.ws_url);
+            // Also race with localhost in case user is testing on local laptop
+            tryConnect(DEFAULT_WS_URL);
             return;
           }
         }
@@ -49,58 +82,28 @@ export function QuizEntry() {
         // quiet
       }
 
-      // Localhost fallback
-      if (
-        isMounted &&
-        (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
-      ) {
-        testConnection(DEFAULT_WS_URL);
-      }
-    }
-
-    function testConnection(targetUrl) {
-      if (!targetUrl) return;
-      if (testWs && (testWs.readyState === WebSocket.OPEN || testWs.readyState === WebSocket.CONNECTING)) {
-        return;
-      }
-
-      try {
-        testWs = new WebSocket(targetUrl);
-        testWs.onopen = () => {
-          if (isMounted) {
-            setWsConnected(true);
-          }
-        };
-        testWs.onclose = () => {
-          if (isMounted) {
-            setWsConnected(false);
-          }
-        };
-        testWs.onerror = () => {
-          if (isMounted) {
-            setWsConnected(false);
-          }
-        };
-      } catch (e) {
-        if (isMounted) setWsConnected(false);
+      if (isMounted) {
+        tryConnect(DEFAULT_WS_URL);
       }
     }
 
     checkBackend();
 
-    // Re-check every 3.5 seconds
+    // Re-check every 3 seconds if disconnected
     const interval = setInterval(() => {
       if (isMounted && !wsConnected) {
         checkBackend();
       }
-    }, 3500);
+    }, 3000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
-      if (testWs) {
-        testWs.close();
-      }
+      sockets.forEach((s) => {
+        try {
+          s.close();
+        } catch (e) {}
+      });
     };
   }, [wsConnected]);
 

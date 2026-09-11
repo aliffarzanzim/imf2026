@@ -150,7 +150,12 @@ export function QuizMaster() {
         ws.onclose = () => {
           if (isUnmounted) return;
           setWsConnected(false);
-          setTimeout(connect, 3000);
+          if (wsUrl !== DEFAULT_WS_URL) {
+            console.log("[WS] Tunnel unreachable, falling back to localhost:", DEFAULT_WS_URL);
+            setWsUrl(DEFAULT_WS_URL);
+          } else {
+            setTimeout(connect, 3000);
+          }
         };
 
         ws.onerror = (err) => {
