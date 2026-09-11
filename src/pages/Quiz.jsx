@@ -52,7 +52,7 @@ const DEFAULT_WS_URL = "ws://localhost:3001";
 const QUESTION_TIMER_SEC = 25;
 
 export function Quiz() {
-  // Mode: "player" | "host" | "solo"
+  // Mode: "player" | "host"
   const [appMode, setAppMode] = useState(() => {
     if (typeof window !== "undefined" && window.location.search.includes("mode=host")) {
       return "host";
@@ -62,10 +62,19 @@ export function Quiz() {
 
   const [muted, setMuted] = useState(false);
   const [wsUrl, setWsUrl] = useState(() => {
-    return localStorage.getItem("imf_quiz_ws") || DEFAULT_WS_URL;
+    const saved = localStorage.getItem("imf_quiz_ws");
+    if (saved) return saved;
+    if (
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+    ) {
+      return DEFAULT_WS_URL;
+    }
+    return "";
   });
   const [showSettings, setShowSettings] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
 
   // Player State
   const [playerName, setPlayerName] = useState(() => localStorage.getItem("imf_quiz_name") || "");
@@ -91,25 +100,66 @@ export function Quiz() {
   const [hostPin, setHostPin] = useState("2026");
   const [hostAuthed, setHostAuthed] = useState(false);
 
-  // Solo Mode State
-  const [soloQIndex, setSoloQIndex] = useState(0);
-  const [soloScore, setSoloScore] = useState(0);
-  const [soloAnswers, setSoloAnswers] = useState({});
-  const [soloRevealed, setSoloRevealed] = useState(false);
-
   // WebSocket Ref
   const wsRef = useRef(null);
   const timerRef = useRef(null);
 
   // -------------------------------------------------------------
+  // Auto-Fetch Active Cloudflare Tunnel URL from Backend API
+  // -------------------------------------------------------------
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchTunnelConfig() {
+      try {
+        const res = await fetch("/api/quiz-config");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ws_url && isMounted) {
+            setWsUrl((prev) => {
+              if (prev !== data.ws_url) {
+                console.log("[Quiz] Auto-detected live tunnel URL:", data.ws_url);
+                localStorage.setItem("imf_quiz_ws", data.ws_url);
+                return data.ws_url;
+              }
+              return prev;
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("[Quiz] Failed to load quiz tunnel config:", err);
+      }
+
+      // Localhost fallback
+      if (
+        isMounted &&
+        (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+      ) {
+        setWsUrl((prev) => prev || DEFAULT_WS_URL);
+      }
+    }
+
+    fetchTunnelConfig();
+
+    // Periodic check if disconnected so players auto-reconnect as soon as host launches tunnel
+    const poll = setInterval(() => {
+      if (!wsConnected && isMounted) {
+        fetchTunnelConfig();
+      }
+    }, 4000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(poll);
+    };
+  }, [wsConnected]);
+
+  // -------------------------------------------------------------
   // WebSocket Connection Lifecycle
   // -------------------------------------------------------------
   useEffect(() => {
-    if (appMode === "solo") {
-      if (wsRef.current) wsRef.current.close();
-      setWsConnected(false);
-      return;
-    }
+    if (!wsUrl) return;
 
     let isUnmounted = false;
     let ws = null;
@@ -333,34 +383,6 @@ export function Quiz() {
     }
   }
 
-  // Solo Practice Mode Handlers
-  const currentSoloQ = QUIZ_QUESTIONS[soloQIndex];
-
-  function handleSoloAnswer(optionKey) {
-    if (soloRevealed) return;
-    playSelectSound(muted);
-    const isCorrect = optionKey === currentSoloQ.correctAnswer;
-    setSoloAnswers({ ...soloAnswers, [soloQIndex]: optionKey });
-    setSoloRevealed(true);
-    if (isCorrect) {
-      setSoloScore((s) => s + 1000);
-      playCorrectSound(muted);
-    } else {
-      playIncorrectSound(muted);
-    }
-  }
-
-  function handleSoloNext() {
-    if (soloQIndex + 1 < QUIZ_QUESTIONS.length) {
-      setSoloQIndex(soloQIndex + 1);
-      setSoloRevealed(false);
-    } else {
-      setSoloRevealed(false);
-      setGameState("PODIUM");
-      playFanfareSound(muted);
-    }
-  }
-
   const activeQuestion = QUIZ_QUESTIONS[currentQIndex] || QUIZ_QUESTIONS[0];
 
   // =============================================================
@@ -384,7 +406,7 @@ export function Quiz() {
               </span>
             </a>
 
-            {/* Mode Switch Pills */}
+            {/* Mode Switch Pills: Player vs Stage Host */}
             <div className="flex items-center bg-slate-800/80 p-1 rounded-xl border border-slate-700/60 text-xs font-semibold">
               <button
                 onClick={() => setAppMode("player")}
@@ -406,39 +428,27 @@ export function Quiz() {
               >
                 🎬 Stage Host
               </button>
-              <button
-                onClick={() => setAppMode("solo")}
-                className={`px-3 py-1 rounded-lg transition-all ${
-                  appMode === "solo"
-                    ? "bg-sky-500 text-slate-950 font-bold shadow-sm"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                🎯 Solo Practice
-              </button>
             </div>
           </div>
 
           {/* Right Header Badges */}
           <div className="flex items-center gap-2">
-            {appMode !== "solo" && (
-              <div
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border ${
-                  wsConnected
-                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                    : "bg-amber-500/10 text-amber-400 border-amber-500/30 animate-pulse"
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border ${
+                wsConnected
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                  : "bg-amber-500/10 text-amber-400 border-amber-500/30 animate-pulse"
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  wsConnected ? "bg-emerald-400" : "bg-amber-400"
                 }`}
-              >
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    wsConnected ? "bg-emerald-400" : "bg-amber-400"
-                  }`}
-                />
-                <span className="hidden sm:inline">
-                  {wsConnected ? "Live Connected" : "Connecting..."}
-                </span>
-              </div>
-            )}
+              />
+              <span className="hidden sm:inline">
+                {wsConnected ? "Live Connected" : "Connecting..."}
+              </span>
+            </div>
 
             {/* Sound Toggle */}
             <button
@@ -466,16 +476,16 @@ export function Quiz() {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
             <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-              ⚙️ WebSocket &amp; Arena Settings
+              ⚙️ Live Arena WebSocket &amp; Tunnel
             </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Enter the WebSocket URL for your local server or Cloudflare Tunnel endpoint.
+            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+              Auto-configured via Cloudflare. When running the tunnel from the stage laptop, click "Broadcast" to sync this endpoint to all delegate phones automatically.
             </p>
 
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  WebSocket Server Endpoint
+                  WebSocket Server / Tunnel URL
                 </label>
                 <input
                   type="text"
@@ -484,24 +494,55 @@ export function Quiz() {
                     setWsUrl(e.target.value);
                     localStorage.setItem("imf_quiz_ws", e.target.value);
                   }}
-                  placeholder="ws://localhost:3001 or wss://tunnel..."
+                  placeholder="wss://...trycloudflare.com or ws://localhost:3001"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-emerald-400 font-mono focus:border-emerald-500 focus:outline-none"
                 />
               </div>
 
               {appMode === "host" && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Host Admin PIN
-                  </label>
-                  <input
-                    type="password"
-                    value={hostPin}
-                    onChange={(e) => setHostPin(e.target.value)}
-                    placeholder="Default: 2026"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-purple-500 focus:outline-none"
-                  />
-                </div>
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      Host Admin PIN
+                    </label>
+                    <input
+                      type="password"
+                      value={hostPin}
+                      onChange={(e) => setHostPin(e.target.value)}
+                      placeholder="Default: 2026"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-purple-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isBroadcasting || !wsUrl}
+                    onClick={async () => {
+                      setIsBroadcasting(true);
+                      try {
+                        const res = await fetch("/api/quiz-config", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ ws_url: wsUrl, pin: hostPin }),
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                          alert("✅ Broadcast Successful!\nAll audience phones will automatically connect to:\n" + wsUrl);
+                          setShowSettings(false);
+                        } else {
+                          alert("❌ Broadcast Failed: " + (data.error || "Unknown error"));
+                        }
+                      } catch (err) {
+                        alert("❌ Network Error: " + err.message);
+                      } finally {
+                        setIsBroadcasting(false);
+                      }
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <span>{isBroadcasting ? "Syncing..." : "📡 Broadcast & Auto-Sync to All Phones"}</span>
+                  </button>
+                </>
               )}
             </div>
 
@@ -518,122 +559,6 @@ export function Quiz() {
       )}
 
       {/* ======================================================= */}
-      {/* 1. SOLO PRACTICE MODE                                   */}
-      {/* ======================================================= */}
-      {appMode === "solo" && (
-        <main className="flex-1 max-w-4xl mx-auto w-full p-4 sm:p-6 flex flex-col justify-center">
-          <div className="bg-slate-900 border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-2xl">
-            {/* Header progress */}
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-4 mb-6">
-              <div className="flex items-center gap-2">
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                  {currentSoloQ.specialty}
-                </span>
-                <span className="text-xs text-slate-400 font-medium">
-                  Question {soloQIndex + 1} of {QUIZ_QUESTIONS.length}
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-xs text-slate-400">Score</span>
-                <div className="text-lg font-black text-emerald-400">
-                  {soloScore.toLocaleString()} pts
-                </div>
-              </div>
-            </div>
-
-            {/* Case Scenario */}
-            <div className="bg-slate-950/70 border border-slate-800/60 rounded-2xl p-5 mb-6 text-slate-200 text-sm sm:text-base leading-relaxed">
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                Clinical Case Scenario
-              </div>
-              <p>{currentSoloQ.scenario}</p>
-            </div>
-
-            {/* Prompt */}
-            <h2 className="text-base sm:text-lg font-extrabold text-white mb-6">
-              {currentSoloQ.prompt}
-            </h2>
-
-            {/* Option Cards */}
-            <div className="grid grid-cols-1 gap-3 mb-6">
-              {currentSoloQ.options.map((opt) => {
-                const theme = OPTION_THEMES[opt.key];
-                const isSelected = soloAnswers[soloQIndex] === opt.key;
-                const isCorrect = opt.key === currentSoloQ.correctAnswer;
-
-                let cardClass =
-                  "p-4 rounded-2xl border transition-all text-left flex items-start gap-4 cursor-pointer ";
-
-                if (soloRevealed) {
-                  if (isCorrect) {
-                    cardClass += "bg-emerald-500/20 border-emerald-400 text-white font-bold ring-2 ring-emerald-400/50";
-                  } else if (isSelected) {
-                    cardClass += "bg-rose-500/20 border-rose-400 text-white opacity-70 line-through";
-                  } else {
-                    cardClass += "bg-slate-950/40 border-slate-800/40 opacity-40";
-                  }
-                } else {
-                  cardClass += "bg-slate-950/70 border-slate-800 hover:border-slate-700 hover:bg-slate-900";
-                }
-
-                return (
-                  <button
-                    key={opt.key}
-                    disabled={soloRevealed}
-                    onClick={() => handleSoloAnswer(opt.key)}
-                    className={cardClass}
-                  >
-                    <span
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-white shrink-0 text-sm shadow-md ${theme.bg}`}
-                    >
-                      {opt.key}
-                    </span>
-                    <span className="text-sm sm:text-base font-medium leading-normal pt-1.5">
-                      {opt.text}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Explanation Drawer */}
-            {soloRevealed && (
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 mb-6 animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex items-center gap-2 mb-2 font-bold text-sm">
-                  {soloAnswers[soloQIndex] === currentSoloQ.correctAnswer ? (
-                    <span className="text-emerald-400 flex items-center gap-1.5">
-                      ✓ Correct Answer: Option {currentSoloQ.correctAnswer}
-                    </span>
-                  ) : (
-                    <span className="text-rose-400 flex items-center gap-1.5">
-                      ✗ Incorrect! Correct Answer: Option {currentSoloQ.correctAnswer}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                  {currentSoloQ.explanation}
-                </p>
-              </div>
-            )}
-
-            {/* Next Question Button */}
-            {soloRevealed && (
-              <div className="flex justify-end">
-                <button
-                  onClick={handleSoloNext}
-                  className="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm shadow-lg shadow-emerald-500/20 transition-transform active:scale-95 flex items-center gap-2"
-                >
-                  {soloQIndex + 1 < QUIZ_QUESTIONS.length
-                    ? "Next Question →"
-                    : "View Final Results 🏆"}
-                </button>
-              </div>
-            )}
-          </div>
-        </main>
-      )}
-
-      {/* ======================================================= */}
       {/* 2. PLAYER MODE (Auditorium Mobile View)                  */}
       {/* ======================================================= */}
       {appMode === "player" && (
@@ -647,9 +572,24 @@ export function Quiz() {
               <h1 className="text-2xl font-black text-white mb-1">
                 Enter Live Arena
               </h1>
-              <p className="text-xs text-slate-400 mb-6">
+              <p className="text-xs text-slate-400 mb-4">
                 National Internal Medicine Festival 2026 Live Quiz
               </p>
+
+              {/* Connection Status Banner */}
+              <div className="mb-6 flex items-center justify-center">
+                {wsConnected ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    Live Auditorium Tunnel Connected
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30 animate-pulse">
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    Connecting to Stage Host...
+                  </span>
+                )}
+              </div>
 
               <form onSubmit={handleJoinSubmit} className="space-y-4 text-left">
                 <div>
