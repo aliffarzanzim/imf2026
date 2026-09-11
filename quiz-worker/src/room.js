@@ -52,6 +52,19 @@ export class QuizRoom extends DurableObject {
     this.sessions = [];
     this.activeSession = null;
     this.initSessions();
+
+    // Persistent Live Game State table
+    try {
+      this.ctx.storage.sql.exec(`
+        CREATE TABLE IF NOT EXISTS live_state (
+          key TEXT PRIMARY KEY,
+          value TEXT
+        );
+      `);
+      this.restoreLiveState();
+    } catch (e) {
+      console.error("Failed to init live_state:", e);
+    }
   }
 
   initSessions() {
@@ -244,6 +257,65 @@ export class QuizRoom extends DurableObject {
       }
     } catch (e) {
       console.error("Failed to restore completed session scores:", e);
+    }
+  }
+
+  persistLiveState() {
+    try {
+      this.ctx.storage.sql.exec(
+        `INSERT OR REPLACE INTO live_state (key, value) VALUES
+          ('gameState', ?),
+          ('currentQuestionIdx', ?),
+          ('quizPacingMode', ?),
+          ('pendingAction', ?),
+          ('pendingDueTime', ?),
+          ('questionStartTime', ?)`,
+        this.gameState || "LOBBY",
+        String(this.currentQuestionIdx || 0),
+        this.quizPacingMode || "auto",
+        this.pendingAction || "",
+        String(this.pendingDueTime || 0),
+        String(this.questionStartTime || 0)
+      );
+    } catch (e) {
+      console.error("Failed to persist live state:", e);
+    }
+  }
+
+  restoreLiveState() {
+    try {
+      const rows = [...this.ctx.storage.sql.exec("SELECT key, value FROM live_state")];
+      const map = new Map();
+      for (const r of rows) map.set(r.key, r.value);
+
+      if (map.has("gameState") && map.get("gameState")) {
+        this.gameState = map.get("gameState");
+      }
+      if (map.has("currentQuestionIdx")) {
+        this.currentQuestionIdx = parseInt(map.get("currentQuestionIdx"), 10) || 0;
+      }
+      if (map.has("quizPacingMode")) {
+        this.quizPacingMode = map.get("quizPacingMode") || "auto";
+      }
+      if (map.has("questionStartTime")) {
+        this.questionStartTime = parseInt(map.get("questionStartTime"), 10) || 0;
+      }
+      if (map.has("pendingAction") && map.get("pendingAction")) {
+        this.pendingAction = map.get("pendingAction");
+        this.pendingDueTime = parseInt(map.get("pendingDueTime"), 10) || 0;
+        const remainingMs = this.pendingDueTime - Date.now();
+        if (remainingMs > 0) {
+          const delaySec = Math.max(0.2, remainingMs / 1000);
+          this.scheduleTimer(this.pendingAction, delaySec);
+        } else if (this.quizPacingMode === "auto" && this.gameState !== "LOBBY" && this.gameState !== "PODIUM") {
+          // Auto transition expired while sleeping/refreshing: trigger immediately
+          setTimeout(() => {
+            this.executeAction(this.pendingAction);
+          }, 100);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to restore live state:", e);
     }
   }
 
@@ -471,17 +543,19 @@ export class QuizRoom extends DurableObject {
           })
         );
 
-        // Immediate push of LOBBY_STATE
-        ws.send(
-          JSON.stringify({
-            type: "LOBBY_STATE",
-            players: playerList,
-            totalCount: playerList.length,
-            activeSession: this.activeSession,
-            sessions: this.sessions,
-            hasActiveSession: !!this.activeSession,
-          })
-        );
+        // Only push LOBBY_STATE if the quiz is genuinely in LOBBY state
+        if (this.gameState === "LOBBY") {
+          ws.send(
+            JSON.stringify({
+              type: "LOBBY_STATE",
+              players: playerList,
+              totalCount: playerList.length,
+              activeSession: this.activeSession,
+              sessions: this.sessions,
+              hasActiveSession: !!this.activeSession,
+            })
+          );
+        }
 
         // Reconnect sync if Quiz Master reloaded during an active stage
         if (this.gameState === "QUESTION") {
@@ -537,6 +611,25 @@ export class QuizRoom extends DurableObject {
         } else if (this.gameState === "LEADERBOARD") {
           const lb = this.getLeaderboard();
           const remainingSec = this.pendingDueTime ? Math.max(0, Math.round((this.pendingDueTime - Date.now()) / 1000)) : 0;
+          let pStats = {};
+          if (meta.role !== "host") {
+            const pId = meta.playerId || meta.id;
+            const p = this.players.get(pId);
+            if (p) {
+              const lastAns = p.answers && p.answers[this.currentQuestionIdx];
+              const pointsAdded = lastAns && lastAns.isCorrect ? (lastAns.points || 0) : 0;
+              const prevScore = Math.max(0, (p.score || 0) - pointsAdded);
+              const myEntry = lb.top10.find((x) => x.id === p.id);
+              pStats = {
+                rank: myEntry ? myEntry.rank : 1,
+                prevRank: myEntry ? myEntry.prevRank : 1,
+                totalScore: p.score,
+                prevScore,
+                pointsAdded,
+                streak: p.streak,
+              };
+            }
+          }
           ws.send(
             JSON.stringify({
               type: "LEADERBOARD_VIEW",
@@ -544,6 +637,7 @@ export class QuizRoom extends DurableObject {
               totalPlayers: lb.totalPlayers,
               pacingMode: this.quizPacingMode,
               autoNextSec: remainingSec,
+              ...pStats,
             })
           );
         } else if (this.gameState === "PODIUM" || (this.activeSession && this.activeSession.isCompleted)) {
@@ -896,7 +990,9 @@ export class QuizRoom extends DurableObject {
       }
     }
 
-    this.broadcastLobbyStatus();
+    if (this.gameState === "LOBBY") {
+      this.broadcastLobbyStatus();
+    }
   }
 
   async webSocketError(ws, error) {
@@ -914,6 +1010,7 @@ export class QuizRoom extends DurableObject {
     this.gameState = "QUESTION";
     this.currentQuestionIdx = index;
     this.questionStartTime = Date.now();
+    this.persistLiveState();
 
     const publicQuestion = this.getPublicQuestion(index);
 
@@ -931,6 +1028,7 @@ export class QuizRoom extends DurableObject {
   revealAnswer() {
     this.clearAllTimers();
     this.gameState = "ANSWER_REVEAL";
+    this.persistLiveState();
 
     const q = QUIZ_QUESTIONS[this.currentQuestionIdx];
     if (!q) return;
@@ -1012,12 +1110,21 @@ export class QuizRoom extends DurableObject {
   showLeaderboard() {
     this.clearAllTimers();
     this.gameState = "LEADERBOARD";
+    this.persistLiveState();
     const leaderboard = this.getLeaderboard();
 
     // Send personalized ranks
     const sorted = Array.from(this.players.values()).sort((a, b) => b.score - a.score);
     const rankMap = new Map();
     sorted.forEach((p, idx) => rankMap.set(p.id, idx + 1));
+
+    const sortedPrev = Array.from(this.players.values()).sort((a, b) => {
+      const aAns = a.answers && a.answers[this.currentQuestionIdx];
+      const aPts = aAns && aAns.isCorrect ? (aAns.points || 0) : 0;
+      const bAns = b.answers && b.answers[this.currentQuestionIdx];
+      const bPts = bAns && bAns.isCorrect ? (bAns.points || 0) : 0;
+      return ((b.score || 0) - bPts) - ((a.score || 0) - aPts);
+    });
 
     for (const ws of this.ctx.getWebSockets()) {
       const meta = ws.deserializeAttachment();
@@ -1037,11 +1144,20 @@ export class QuizRoom extends DurableObject {
         const pId = meta.playerId || meta.id;
         const p = this.players.get(pId);
         if (p) {
+          const lastAns = p.answers && p.answers[this.currentQuestionIdx];
+          const pointsAdded = lastAns && lastAns.isCorrect ? (lastAns.points || 0) : 0;
+          const prevScore = Math.max(0, (p.score || 0) - pointsAdded);
+          const prevRank = sortedPrev.findIndex((x) => x.id === p.id) + 1;
+          const currentRank = rankMap.get(p.id) || 1;
+
           ws.send(
             JSON.stringify({
               type: "LEADERBOARD_VIEW",
-              rank: rankMap.get(p.id) || 1,
+              rank: currentRank,
+              prevRank: prevRank || currentRank,
               totalScore: p.score,
+              prevScore,
+              pointsAdded,
               streak: p.streak,
               top10: leaderboard.top10,
               totalPlayers: leaderboard.totalPlayers,
@@ -1140,7 +1256,7 @@ export class QuizRoom extends DurableObject {
   endQuiz() {
     this.clearAllTimers();
     this.gameState = "PODIUM";
-
+    this.persistLiveState();
     const now = Date.now();
     if (this.activeSession) {
       try {
@@ -1239,6 +1355,7 @@ export class QuizRoom extends DurableObject {
     this.gameState = "LOBBY";
     this.currentQuestionIdx = 0;
     this.questionStartTime = 0;
+    this.persistLiveState();
 
     for (const p of this.players.values()) {
       p.score = 0;
@@ -1267,6 +1384,7 @@ export class QuizRoom extends DurableObject {
     this.pendingAction = action;
     this.pendingToken = token;
     this.pendingDueTime = Date.now() + delaySec * 1000;
+    this.persistLiveState();
 
     // Both in-memory timeout and Durable Object Alarm for maximum reliability
     this.activeTimer = setTimeout(() => {
@@ -1331,6 +1449,7 @@ export class QuizRoom extends DurableObject {
     this.pendingToken = null;
     this.pendingAction = null;
     this.pendingDueTime = 0;
+    this.persistLiveState();
     if (this.activeTimer) {
       clearTimeout(this.activeTimer);
       this.activeTimer = null;
@@ -1357,15 +1476,35 @@ export class QuizRoom extends DurableObject {
   }
 
   getLeaderboard() {
+    const sortedPrev = Array.from(this.players.values()).sort((a, b) => {
+      const aAns = a.answers && a.answers[this.currentQuestionIdx];
+      const aPts = aAns && aAns.isCorrect ? (aAns.points || 0) : 0;
+      const bAns = b.answers && b.answers[this.currentQuestionIdx];
+      const bPts = bAns && bAns.isCorrect ? (bAns.points || 0) : 0;
+      return ((b.score || 0) - bPts) - ((a.score || 0) - aPts);
+    });
+
+    const prevRankMap = new Map();
+    sortedPrev.forEach((p, idx) => prevRankMap.set(p.id, idx + 1));
+
     const sorted = Array.from(this.players.values())
       .sort((a, b) => b.score - a.score)
-      .map((p) => ({
-        id: p.id,
-        name: p.name,
-        regNumber: p.regNumber,
-        score: p.score,
-        streak: p.streak,
-      }));
+      .map((p, idx) => {
+        const lastAns = p.answers && p.answers[this.currentQuestionIdx];
+        const pointsAdded = lastAns && lastAns.isCorrect ? (lastAns.points || 0) : 0;
+        const prevScore = Math.max(0, (p.score || 0) - pointsAdded);
+        return {
+          id: p.id,
+          name: p.name,
+          regNumber: p.regNumber || "",
+          score: p.score || 0,
+          prevScore,
+          pointsAdded,
+          rank: idx + 1,
+          prevRank: prevRankMap.get(p.id) || (idx + 1),
+          streak: p.streak || 0,
+        };
+      });
 
     return {
       top10: sorted.slice(0, 10),

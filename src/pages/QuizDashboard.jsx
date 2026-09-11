@@ -9,6 +9,7 @@ import {
   playFanfareSound,
 } from "../utils/quizAudio";
 import { navigate } from "../utils/navigation";
+import { AnimatedScoreboardList, PinnedPersonalBar } from "../components/quiz/AnimatedScoreboard";
 
 // Authentic Kahoot Color Themes & Symbols for options A, B, C, D, E (Matches Video Recording)
 const KAHOOT_OPTION_THEMES = {
@@ -94,11 +95,20 @@ export function QuizDashboard() {
   const [revealCountdown, setRevealCountdown] = useState(0);
   const [leaderboardCountdown, setLeaderboardCountdown] = useState(0);
   const [pacingMode, setPacingMode] = useState("auto"); // "auto" or "manual"
+  const [personalScoreInfo, setPersonalScoreInfo] = useState({
+    prevScore: 0,
+    score: 0,
+    pointsAdded: 0,
+    rank: 1,
+    prevRank: 1,
+  });
 
   // Active Session & Lobby Status State
   const [activeSession, setActiveSession] = useState(null);
   const [isLobbyActive, setIsLobbyActive] = useState(true);
   const [waitingMessage, setWaitingMessage] = useState("Please wait while Quiz Master activates the lobby...");
+  const [institution, setInstitution] = useState(() => localStorage.getItem("imf_quiz_institution") || "");
+  const [academicYear, setAcademicYear] = useState(() => localStorage.getItem("imf_quiz_year") || "");
 
   const wsRef = useRef(null);
   const timerRef = useRef(null);
@@ -325,6 +335,13 @@ export function QuizDashboard() {
         if (msg.streak !== undefined) setStreak(msg.streak);
         if (msg.pacingMode) setPacingMode(msg.pacingMode);
         setLeaderboardCountdown(msg.autoNextSec || (msg.pacingMode === "auto" ? 6 : 0));
+        setPersonalScoreInfo({
+          prevScore: msg.prevScore ?? Math.max(0, (msg.totalScore ?? score) - (msg.pointsAdded || 0)),
+          score: msg.totalScore ?? score,
+          pointsAdded: msg.pointsAdded ?? 0,
+          rank: msg.rank ?? playerRank,
+          prevRank: msg.prevRank ?? (msg.rank ?? playerRank),
+        });
         break;
 
       case "QUIZ_FINISHED":
@@ -505,11 +522,11 @@ export function QuizDashboard() {
               <div className="w-8 h-8 rounded-full border-3 border-emerald-400 border-t-transparent animate-spin" />
             </div>
 
-            <h2 className="text-xl sm:text-2xl font-black text-white mb-2">
-              You're in, {playerName}!
+            <h2 className="text-2xl sm:text-3xl font-black text-white mb-1.5 tracking-tight">
+              You are in, "{playerName}"
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400 mb-6 leading-relaxed">
-              Waiting for the Quiz Master on stage to launch Question 1...
+            <p className="text-sm sm:text-base font-bold text-emerald-400 mb-6">
+              from {institution || "Medical College"} ({academicYear || "Final Year"})
             </p>
 
             <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800/80 flex items-center justify-between text-xs mb-6">
@@ -671,24 +688,24 @@ export function QuizDashboard() {
                     key={opt.key}
                     disabled={answerSubmitted || isRevealed}
                     onClick={() => handleSelectOption(opt.key)}
-                    className={`p-4 rounded-2xl border border-white/10 text-left flex items-center justify-between gap-3.5 transition-all ${buttonStyle}`}
+                    className={`relative p-4 sm:p-5 rounded-2xl border border-white/10 flex items-center justify-center text-center transition-all min-h-[68px] sm:min-h-[82px] ${buttonStyle}`}
                   >
-                    <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                      <span
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center font-black shrink-0 text-sm shadow ${
-                          isRevealed && isCorrectOption
-                            ? "bg-white text-[#26890c]"
-                            : "bg-black/20 text-white"
-                        }`}
-                      >
-                        {theme.shape}
-                      </span>
-                      <span className="text-xs sm:text-sm font-bold leading-snug truncate">
-                        {opt.text}
-                      </span>
-                    </div>
+                    {/* Shape smaller in upper-left corner only (Kahoot style) */}
+                    <span className="absolute top-2.5 left-3.5 text-white/90 text-xs sm:text-sm font-black select-none pointer-events-none drop-shadow">
+                      {theme.shape}
+                    </span>
 
-                    {badge}
+                    {/* Option Text centered and wrapped properly */}
+                    <span className="text-xs sm:text-sm sm:text-base font-extrabold leading-snug px-3 sm:px-4">
+                      {opt.text}
+                    </span>
+
+                    {/* Reveal badge in upper-right corner */}
+                    {badge && (
+                      <div className="absolute top-2.5 right-3.5">
+                        {badge}
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -716,65 +733,28 @@ export function QuizDashboard() {
               Scoreboard
             </h2>
 
-            {/* Top 5 Leaderboard List (Image 1 & 3 layout) */}
-            <div className="space-y-3 mb-6">
-              {leaderboardData.slice(0, 5).map((p, idx) => {
-                const isMe = p.name === playerName;
-                return (
-                  <div
-                    key={p.id || idx}
-                    className={`flex items-center justify-between px-4 py-3 rounded-2xl transition ${
-                      isMe
-                        ? "bg-[#64239e] border border-[#9b51e0] text-white font-black shadow-lg"
-                        : "bg-white/5 hover:bg-white/10 text-slate-100 font-bold border border-white/5"
-                    }`}
-                  >
-                    <div className="flex items-center gap-4 min-w-0">
-                      <span className="w-5 text-sm font-black text-white/70">
-                        {idx + 1}
-                      </span>
-                      <span className="text-sm sm:text-base font-extrabold tracking-wide truncate max-w-[170px] sm:max-w-[240px]">
-                        {p.name}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="font-mono text-sm sm:text-base font-black text-white">
-                        {p.score.toLocaleString()}
-                      </span>
-                      <span className="text-emerald-400 text-xs font-black">▲</span>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {leaderboardData.length === 0 && (
-                <div className="text-center py-6 text-xs text-purple-300 italic">
-                  Scores are calculating...
-                </div>
-              )}
+            {/* Top 5 Leaderboard List with counting animation and overtaking swap */}
+            <div className="mb-6">
+              <AnimatedScoreboardList
+                players={leaderboardData}
+                isHost={false}
+                currentUserName={playerName}
+              />
             </div>
 
-            {/* Pinned Personal Rank Bar (Matches Image 1 & 3: 908 abc1 2589 ▲) */}
-            <div className="pt-4 border-t border-purple-800/50">
-              <div className="flex items-center justify-between px-5 py-3.5 rounded-2xl bg-[#592387] border border-[#893ec9] shadow-xl text-white">
-                <div className="flex items-center gap-4 min-w-0">
-                  <span className="font-black text-base text-purple-200">
-                    {playerRank || 1}
-                  </span>
-                  <span className="font-black text-sm sm:text-base truncate max-w-[170px] sm:max-w-[220px]">
-                    {playerName}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="font-mono text-base font-black text-white">
-                    {score.toLocaleString()}
-                  </span>
-                  <span className="text-emerald-400 text-xs font-black">▲</span>
-                </div>
-              </div>
-            </div>
+            {/* Pinned Personal Rank Bar (With count-up and conditional green arrow only on positive points) */}
+            <PinnedPersonalBar
+              rank={playerRank || 1}
+              prevRank={personalScoreInfo?.prevRank || playerRank || 1}
+              score={score}
+              prevScore={
+                personalScoreInfo?.prevScore !== undefined
+                  ? personalScoreInfo.prevScore
+                  : Math.max(0, score - (personalScoreInfo?.pointsAdded || 0))
+              }
+              pointsAdded={personalScoreInfo?.pointsAdded || 0}
+              playerName={playerName}
+            />
 
             {/* Auto-Advance Countdown Bar */}
             <div className="text-center mt-5">

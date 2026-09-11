@@ -9,6 +9,7 @@ import {
   playFanfareSound,
 } from "../utils/quizAudio";
 import { adminLogin, adminLogout, isAdminAuthed } from "../utils/api";
+import { AnimatedScoreboardList } from "../components/quiz/AnimatedScoreboard";
 
 const KAHOOT_OPTION_THEMES = {
   A: { bg: "bg-[#e21b3c]", border: "border-[#b0132c]", shape: "▲" },
@@ -1095,22 +1096,24 @@ export function QuizMaster() {
                 return (
                   <div
                     key={opt.key}
-                    className={`rounded-2xl p-5 flex items-center justify-between gap-4 border border-white/10 transition-all ${cardStyle}`}
+                    className={`relative rounded-2xl p-5 sm:p-6 flex items-center justify-center text-center border border-white/10 transition-all min-h-[82px] sm:min-h-[96px] ${cardStyle}`}
                   >
-                    <div className="flex items-center gap-4 min-w-0">
-                      <span
-                        className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black shrink-0 text-xl shadow-lg ${
-                          isRevealed && isCorrect ? "bg-white text-[#26890c]" : "bg-black/20 text-white"
-                        }`}
-                      >
-                        {theme.shape}
-                      </span>
-                      <span className={`text-base sm:text-xl truncate ${isRevealed && isCorrect ? "font-black" : "font-bold"}`}>
-                        {opt.text}
-                      </span>
-                    </div>
+                    {/* Shape smaller in upper-left corner only (Kahoot style) */}
+                    <span className="absolute top-3 left-4 text-white/90 text-sm sm:text-base font-black select-none pointer-events-none drop-shadow">
+                      {theme.shape}
+                    </span>
 
-                    {badge}
+                    {/* Option Text centered and bold for auditorium projection */}
+                    <span className={`text-base sm:text-xl px-6 ${isRevealed && isCorrect ? "font-black" : "font-extrabold"}`}>
+                      {opt.text}
+                    </span>
+
+                    {/* Reveal badge in upper-right corner */}
+                    {badge && (
+                      <div className="absolute top-3 right-4">
+                        {badge}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1143,44 +1146,11 @@ export function QuizMaster() {
               </h2>
             </div>
 
-            <div className="space-y-3.5 max-w-2xl mx-auto mb-6">
-              {leaderboardData.slice(0, 5).map((p, idx) => (
-                <div
-                  key={p.id || idx}
-                  className={`flex items-center justify-between px-6 py-4 rounded-2xl border text-base sm:text-lg font-bold transition ${
-                    idx === 0
-                      ? "bg-gradient-to-r from-amber-500/25 to-yellow-500/10 border-amber-400/80 text-white shadow-xl scale-[1.02]"
-                      : "bg-white/5 border-white/10 text-slate-100 hover:bg-white/10"
-                  }`}
-                >
-                  <div className="flex items-center gap-4 min-w-0">
-                    <span className="w-8 font-black text-purple-300 text-lg">
-                      #{idx + 1}
-                    </span>
-                    <span className="font-extrabold truncate max-w-[280px] sm:max-w-[360px]">
-                      {p.name}
-                    </span>
-                    {p.regNumber && (
-                      <span className="text-xs text-purple-300 font-mono hidden sm:inline">
-                        [{p.regNumber}]
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2.5 shrink-0">
-                    <span className="font-mono text-emerald-400 font-black text-lg">
-                      {p.score.toLocaleString()}
-                    </span>
-                    <span className="text-emerald-400 text-sm font-black">▲</span>
-                  </div>
-                </div>
-              ))}
-
-              {leaderboardData.length === 0 && (
-                <div className="text-center py-8 text-sm text-purple-300 italic">
-                  Scores are computing...
-                </div>
-              )}
+            <div className="max-w-2xl mx-auto mb-6">
+              <AnimatedScoreboardList
+                players={leaderboardData}
+                isHost={true}
+              />
             </div>
 
             <div className="text-center text-xs text-purple-300 font-medium">
