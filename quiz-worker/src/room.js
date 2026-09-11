@@ -117,6 +117,10 @@ export class QuizRoom extends DurableObject {
         `);
       } catch (e) {}
 
+      try {
+        this.ctx.storage.sql.exec("ALTER TABLE lobby_players ADD COLUMN email TEXT");
+      } catch (e) {}
+
       const rows = [...this.ctx.storage.sql.exec("SELECT id, name, is_active, is_completed, completed_at, created_at FROM sessions ORDER BY created_at DESC")];
       if (rows.length === 0) {
         const defaultId = "session_" + Date.now().toString(36);
@@ -173,7 +177,7 @@ export class QuizRoom extends DurableObject {
     try {
       const rows = [
         ...this.ctx.storage.sql.exec(
-          "SELECT player_id, name, reg_number, score, streak, connected, last_seen FROM lobby_players WHERE session_id = ?",
+          "SELECT player_id, name, reg_number, email, score, streak, connected, last_seen FROM lobby_players WHERE session_id = ?",
           sessionId
         ),
       ];
@@ -194,6 +198,7 @@ export class QuizRoom extends DurableObject {
             id: r.player_id,
             name: r.name,
             regNumber: r.reg_number || "",
+            email: r.email || "",
             score: r.score || 0,
             streak: r.streak || 0,
             lastPoints: 0,
@@ -204,6 +209,7 @@ export class QuizRoom extends DurableObject {
         } else {
           const p = this.players.get(r.player_id);
           p.connected = hasSocket;
+          if (r.email && !p.email) p.email = r.email;
         }
       }
     } catch (e) {
@@ -215,12 +221,13 @@ export class QuizRoom extends DurableObject {
     if (!sessionId || !player) return;
     try {
       this.ctx.storage.sql.exec(
-        `INSERT OR REPLACE INTO lobby_players (session_id, player_id, name, reg_number, score, streak, connected, last_seen)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT OR REPLACE INTO lobby_players (session_id, player_id, name, reg_number, email, score, streak, connected, last_seen)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         sessionId,
         player.id,
         player.name,
         player.regNumber || "",
+        player.email || "",
         player.score || 0,
         player.streak || 0,
         player.connected ? 1 : 0,
@@ -660,22 +667,67 @@ export class QuizRoom extends DurableObject {
       return;
     }
 
-    // 2. Player Join (tracks uniquely by persistent playerId, supports mid-game join and reconnection)
+    // 2. Player Join (tracks uniquely by persistent playerId, supports single active device per email/reg, and seamless transfer if previous device closed)
     if (msg.type === "JOIN") {
       const name = (msg.name || "Dr. Delegate").trim().slice(0, 40);
       const regNumber = (msg.regNumber || "").trim().toUpperCase().slice(0, 15);
+      const email = (msg.email || "").trim().toLowerCase().slice(0, 80);
       const playerId = msg.playerId || socketId;
+
+      // Enforce single active device per registered email or registration number
+      let activeOtherWs = null;
+      for (const otherWs of this.ctx.getWebSockets()) {
+        if (otherWs !== ws) {
+          const otherMeta = otherWs.deserializeAttachment();
+          if (otherMeta && otherMeta.role === "player") {
+            const sameEmail = email && otherMeta.email && otherMeta.email.toLowerCase() === email;
+            const sameReg = regNumber && otherMeta.regNumber && otherMeta.regNumber.toUpperCase() === regNumber;
+
+            if (sameEmail || sameReg) {
+              if (otherMeta.playerId === playerId) {
+                // Same device reload/reconnection: cleanly terminate old zombie socket
+                try {
+                  otherWs.close(1000, "Replaced by reload");
+                } catch (e) {}
+              } else {
+                // Different device: check if its WebSocket is genuinely open/active
+                if (otherWs.readyState === 1) {
+                  activeOtherWs = otherWs;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (activeOtherWs) {
+        ws.send(
+          JSON.stringify({
+            type: "DEVICE_ALREADY_ACTIVE",
+            message: "You are currently active on another device or browser tab with this registered email. Please close that device or tab first to enter here.",
+            email,
+          })
+        );
+        return;
+      }
 
       meta.playerId = playerId;
       meta.role = "player";
+      meta.email = email;
+      meta.regNumber = regNumber;
+      meta.name = name;
       ws.serializeAttachment(meta);
 
       let player = this.players.get(playerId);
 
-      // Check if this player was already in the game by unique regNumber if available
-      if (!player && regNumber) {
+      // If not found by playerId, search for existing player by registered email or regNumber
+      // (Applies when the doctor was previously live from another device, and that device is now closed)
+      if (!player) {
         for (const existing of this.players.values()) {
-          if (existing.regNumber && existing.regNumber === regNumber) {
+          const matchEmail = email && existing.email && existing.email.toLowerCase() === email;
+          const matchReg = regNumber && existing.regNumber && existing.regNumber.toUpperCase() === regNumber;
+          if (matchEmail || matchReg) {
             player = existing;
             this.players.delete(existing.id);
             break;
@@ -686,11 +738,13 @@ export class QuizRoom extends DurableObject {
       const isReconnected = !!player;
 
       if (player) {
-        // Reconnecting player: update socket ID and refresh name/regNumber if provided
+        // Reconnecting or transferring from a closed device:
+        // Update device playerId, socket ID, refresh details, maintain score, streak, and answers
         player.id = playerId;
         player.socketId = socketId;
         if (name) player.name = name;
         if (regNumber) player.regNumber = regNumber;
+        if (email) player.email = email;
         player.connected = true;
         player.lastSeen = Date.now();
       } else {
@@ -700,6 +754,7 @@ export class QuizRoom extends DurableObject {
           socketId,
           name,
           regNumber,
+          email,
           score: 0,
           streak: 0,
           lastPoints: 0,
@@ -947,6 +1002,7 @@ export class QuizRoom extends DurableObject {
   async webSocketClose(ws, code, reason, wasClean) {
     const meta = ws.deserializeAttachment() || {};
     const pId = meta.playerId || meta.id;
+    const email = meta.email;
 
     if (!pId) return;
 
@@ -955,7 +1011,12 @@ export class QuizRoom extends DurableObject {
     for (const otherWs of this.ctx.getWebSockets()) {
       if (otherWs !== ws) {
         const otherMeta = otherWs.deserializeAttachment();
-        if (otherMeta && (otherMeta.playerId === pId || otherMeta.id === pId)) {
+        if (
+          otherMeta &&
+          (otherMeta.playerId === pId ||
+            otherMeta.id === pId ||
+            (email && otherMeta.email && otherMeta.email.toLowerCase() === email.toLowerCase()))
+        ) {
           hasOtherSocket = true;
           break;
         }
@@ -975,7 +1036,12 @@ export class QuizRoom extends DurableObject {
             const currentSockets = this.ctx.getWebSockets();
             const reconnected = currentSockets.some((s) => {
               const m = s.deserializeAttachment();
-              return m && (m.playerId === pId || m.id === pId);
+              return (
+                m &&
+                (m.playerId === pId ||
+                  m.id === pId ||
+                  (email && m.email && m.email.toLowerCase() === email.toLowerCase()))
+              );
             });
 
             if (!reconnected && this.gameState === "LOBBY") {
