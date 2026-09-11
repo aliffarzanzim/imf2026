@@ -10,15 +10,15 @@ import {
 } from "../utils/quizAudio";
 import { adminLogin, adminLogout, isAdminAuthed } from "../utils/api";
 
-const OPTION_THEMES = {
-  A: { bg: "bg-gradient-to-br from-rose-500 to-red-600", border: "border-red-400" },
-  B: { bg: "bg-gradient-to-br from-sky-500 to-blue-600", border: "border-blue-400" },
-  C: { bg: "bg-gradient-to-br from-amber-500 to-orange-600", border: "border-amber-400" },
-  D: { bg: "bg-gradient-to-br from-emerald-500 to-teal-600", border: "border-emerald-400" },
-  E: { bg: "bg-gradient-to-br from-purple-500 to-indigo-600", border: "border-purple-400" },
+const KAHOOT_OPTION_THEMES = {
+  A: { bg: "bg-[#e21b3c]", border: "border-[#b0132c]", shape: "▲" },
+  B: { bg: "bg-[#1368ce]", border: "border-[#0d478d]", shape: "◆" },
+  C: { bg: "bg-[#d89e00]", border: "border-[#966d00]", shape: "●" },
+  D: { bg: "bg-[#26890c]", border: "border-[#195a07]", shape: "■" },
+  E: { bg: "bg-[#864cbf]", border: "border-[#5c3088]", shape: "★" },
 };
 
-const DEFAULT_WS_URL = "ws://localhost:3001";
+const DEFAULT_WS_URL = "wss://imf2026-quiz.crcck.workers.dev/ws";
 const QUESTION_TIMER_SEC = 25;
 
 export function QuizMaster() {
@@ -54,6 +54,13 @@ export function QuizMaster() {
   const [liveAnswerCount, setLiveAnswerCount] = useState(0);
   const [pacingMode, setPacingMode] = useState("auto"); // "auto" or "manual"
   const [stageCountdown, setStageCountdown] = useState(0);
+
+  // Session & Lobby Management State
+  const [sessions, setSessions] = useState([]);
+  const [activeSession, setActiveSession] = useState(null);
+  const [newSessionName, setNewSessionName] = useState("");
+  const [autoActivateNew, setAutoActivateNew] = useState(true);
+  const [showSessionModal, setShowSessionModal] = useState(false);
 
   const wsRef = useRef(null);
   const timerRef = useRef(null);
@@ -182,6 +189,9 @@ export function QuizMaster() {
         setGameState(msg.gameState || "LOBBY");
         setCurrentQIndex(msg.currentQuestionIdx || 0);
         if (msg.pacingMode) setPacingMode(msg.pacingMode);
+        if (msg.players) setLobbyPlayers(msg.players);
+        if (msg.sessions) setSessions(msg.sessions);
+        if (msg.activeSession !== undefined) setActiveSession(msg.activeSession);
         break;
 
       case "PACING_MODE_UPDATED":
@@ -195,6 +205,23 @@ export function QuizMaster() {
 
       case "LOBBY_STATE":
         setLobbyPlayers(msg.players || []);
+        if (msg.sessions) setSessions(msg.sessions);
+        if (msg.activeSession !== undefined) setActiveSession(msg.activeSession);
+        break;
+
+      case "SESSIONS_UPDATED":
+        if (msg.sessions) setSessions(msg.sessions);
+        setActiveSession(msg.activeSession || null);
+        break;
+
+      case "LOBBY_ACTIVATED":
+        setActiveSession(msg.session || null);
+        setGameState(msg.gameState || "LOBBY");
+        setCurrentQIndex(msg.currentQuestionIdx || 0);
+        break;
+
+      case "LOBBY_INACTIVATED":
+        setActiveSession(null);
         break;
 
       case "QUESTION_START":
@@ -280,6 +307,33 @@ export function QuizMaster() {
     setPacingMode(mode);
     if (mode === "manual") setStageCountdown(0);
     sendHostAction("SET_PACING_MODE", { mode });
+  }
+
+  function handleCreateSession(e) {
+    if (e) e.preventDefault();
+    if (!newSessionName.trim()) return;
+    sendHostAction("CREATE_SESSION", {
+      name: newSessionName.trim(),
+      activate: autoActivateNew,
+    });
+    setNewSessionName("");
+    setShowSessionModal(false);
+  }
+
+  function handleActivateSession(sessionId) {
+    sendHostAction("ACTIVATE_SESSION", { sessionId });
+  }
+
+  function handleInactivateSession(sessionId) {
+    if (confirm("Inactivate this lobby? Connected doctors will be put in waiting queue until a lobby is activated.")) {
+      sendHostAction("INACTIVATE_SESSION", { sessionId });
+    }
+  }
+
+  function handleDeleteSession(sessionId, sessionName) {
+    if (confirm(`Delete session "${sessionName}"? This cannot be undone.`)) {
+      sendHostAction("DELETE_SESSION", { sessionId });
+    }
   }
 
   async function handleLogin(e) {
@@ -413,6 +467,18 @@ export function QuizMaster() {
             </button>
 
             <button
+              onClick={() => setShowSessionModal(true)}
+              title="Manage Sessions & Lobbies"
+              className="px-3 py-1.5 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 text-xs font-bold border border-purple-500/40 transition flex items-center gap-1.5"
+            >
+              <span>🗂️</span>
+              <span className="hidden sm:inline">Sessions</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-purple-500/40 text-[10px] text-white">
+                {sessions.length}
+              </span>
+            </button>
+
+            <button
               onClick={() => setShowSettings(!showSettings)}
               title="Settings"
               className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center border border-slate-700 transition"
@@ -508,6 +574,163 @@ export function QuizMaster() {
                 className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white transition"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sessions Management Modal */}
+      {showSessionModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+              <div>
+                <h3 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+                  <span>🗂️</span>
+                  <span>Arena Sessions &amp; Lobbies</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Only one lobby can be active at a time. Activating a lobby automatically pulls connected doctors into it.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSessionModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Create New Session Form */}
+            <form onSubmit={handleCreateSession} className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 mb-5">
+              <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2">
+                ➕ Create New Session / Lobby
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  required
+                  value={newSessionName}
+                  onChange={(e) => setNewSessionName(e.target.value)}
+                  placeholder="e.g. IMF 2026 - Cardiology Round 1"
+                  className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs shadow-md transition active:scale-95 shrink-0"
+                >
+                  Create &amp; Activate
+                </button>
+              </div>
+              <label className="flex items-center gap-2 mt-2.5 text-[11px] text-slate-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoActivateNew}
+                  onChange={(e) => setAutoActivateNew(e.target.checked)}
+                  className="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-0"
+                />
+                <span>Activate immediately (doctors will automatically join this lobby)</span>
+              </label>
+            </form>
+
+            {/* Existing Sessions List */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span>Existing Sessions ({sessions.length})</span>
+                {activeSession ? (
+                  <span className="text-emerald-400 text-[11px] flex items-center gap-1 font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    1 Active
+                  </span>
+                ) : (
+                  <span className="text-amber-400 text-[11px] font-semibold">
+                    0 Active (Paused)
+                  </span>
+                )}
+              </div>
+
+              {sessions.map((s) => {
+                const isActive = activeSession && activeSession.id === s.id;
+                return (
+                  <div
+                    key={s.id}
+                    className={`rounded-2xl p-4 border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      isActive
+                        ? "bg-emerald-500/10 border-emerald-500/40 shadow-lg shadow-emerald-500/5"
+                        : "bg-slate-950/60 border-slate-800 hover:border-slate-700"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full ${
+                            isActive ? "bg-emerald-400 animate-ping" : "bg-slate-600"
+                          }`}
+                        />
+                        <span className="font-extrabold text-sm text-white">
+                          {s.name}
+                        </span>
+                        {isActive ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            ACTIVE
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700/60">
+                            INACTIVE
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-mono">
+                        Created: {new Date(s.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} • ID: {s.id.slice(0, 14)}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isActive ? (
+                        <button
+                          type="button"
+                          onClick={() => handleInactivateSession(s.id)}
+                          className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs border border-amber-500/30 transition"
+                        >
+                          ⏸️ Inactivate
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleActivateSession(s.id)}
+                          className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition shadow"
+                        >
+                          🟢 Activate
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSession(s.id, s.name)}
+                        className="px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 text-xs font-bold border border-rose-500/20 transition"
+                        title="Delete session"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {sessions.length === 0 && (
+                <div className="text-center py-8 text-slate-500 text-xs italic">
+                  No sessions created yet. Create one above to get started.
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-slate-800 flex justify-end">
+              <button
+                onClick={() => setShowSessionModal(false)}
+                className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white transition"
+              >
+                Done
               </button>
             </div>
           </div>
@@ -653,16 +876,70 @@ export function QuizMaster() {
 
         {/* ── STAGE LOBBY SCREEN ── */}
         {gameState === "LOBBY" && (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 sm:p-12 text-center shadow-2xl my-auto">
-            <div className="max-w-2xl mx-auto">
-              <span className="px-4 py-1.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-block mb-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-10 text-center shadow-2xl my-auto">
+            <div className="max-w-3xl mx-auto">
+              {/* Active Session Status Bar */}
+              {activeSession ? (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-950/80 border border-emerald-500/30 rounded-2xl px-5 py-3.5 mb-6 shadow-inner">
+                  <div className="flex items-center gap-3 text-left">
+                    <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                    <div>
+                      <div className="text-[10px] uppercase font-black tracking-widest text-emerald-400">
+                        Active Stage Session
+                      </div>
+                      <div className="text-base sm:text-lg font-black text-white">
+                        {activeSession.name}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleInactivateSession(activeSession.id)}
+                      title="Deactivate lobby (doctors will wait on standby screen)"
+                      className="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-bold border border-amber-500/30 transition"
+                    >
+                      ⏸️ Inactivate
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowSessionModal(true)}
+                      className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow"
+                    >
+                      <span>🗂️ Sessions ({sessions.length})</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-amber-500/10 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 mb-6 text-center animate-in fade-in zoom-in-95">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-3 text-2xl font-bold">
+                    ⏸️
+                  </div>
+                  <h2 className="text-xl font-black text-white mb-1.5">
+                    No Lobby is Currently Active
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto mb-4">
+                    Doctors visiting <span className="font-mono text-emerald-400 font-bold">imf2026.pages.dev/quiz</span> are currently waiting on the standby screen. Activate an existing lobby or create a new one to let them enter automatically.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowSessionModal(true)}
+                    className="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs shadow-lg transition active:scale-95"
+                  >
+                    ⚡ Choose or Create a Lobby to Activate
+                  </button>
+                </div>
+              )}
+
+              <span className="px-4 py-1.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-block mb-3">
                 IMF 2026 OFFICIAL CLINICAL QUIZ ARENA
               </span>
-              <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight mb-4">
+              <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight mb-2">
                 Join on your mobile phone!
               </h1>
 
-              <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 my-6 text-center">
+              <div className="bg-slate-950 border border-slate-800 rounded-3xl p-5 my-5 text-center">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
                   Open browser &amp; go to:
                 </div>
@@ -671,216 +948,247 @@ export function QuizMaster() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-center gap-3 text-lg text-slate-300 font-bold mb-6">
-                <span className="w-3.5 h-3.5 rounded-full bg-emerald-400 animate-ping" />
+              <div className="flex items-center justify-center gap-3 text-base sm:text-lg text-slate-300 font-bold mb-4">
+                <span className={`w-3.5 h-3.5 rounded-full ${activeSession ? "bg-emerald-400 animate-ping" : "bg-amber-400"}`} />
                 <span>
-                  {lobbyPlayers.length} {lobbyPlayers.length === 1 ? "Doctor" : "Doctors"} Joined
+                  {lobbyPlayers.length} {lobbyPlayers.length === 1 ? "Doctor" : "Doctors"} {activeSession ? "Joined in Lobby" : "Waiting in Standby Queue"}
                 </span>
               </div>
 
-              <div className="flex flex-wrap gap-2 justify-center max-h-48 overflow-hidden mb-8">
+              <div className="flex flex-wrap gap-2 justify-center max-h-48 overflow-y-auto mb-6 p-2">
                 {lobbyPlayers.map((p, i) => (
                   <span
                     key={p.id || i}
-                    className="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-xs text-slate-200 font-medium animate-in fade-in zoom-in-95"
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700 text-xs text-slate-200 font-medium animate-in fade-in zoom-in-95 flex items-center gap-1.5"
                   >
-                    {p.name}
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span>{p.name}</span>
+                    {p.regNumber && (
+                      <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                        ({p.regNumber})
+                      </span>
+                    )}
                   </span>
                 ))}
                 {lobbyPlayers.length === 0 && (
                   <span className="text-xs text-slate-500 italic">
-                    Waiting for doctors to join from their phones...
+                    Waiting for doctors to connect from their phones...
                   </span>
                 )}
               </div>
 
               <div>
-                <button
-                  onClick={() => sendHostAction("START_QUIZ")}
-                  className="px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-base shadow-2xl shadow-emerald-500/30 transition-transform active:scale-95 flex items-center justify-center gap-3 mx-auto"
-                >
-                  <span>🚀 Launch Live Quiz (Question 1)</span>
-                </button>
+                {activeSession ? (
+                  <button
+                    onClick={() => sendHostAction("START_QUIZ")}
+                    className="px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-base shadow-2xl shadow-emerald-500/30 transition-transform active:scale-95 flex items-center justify-center gap-3 mx-auto"
+                  >
+                    <span>🚀 Launch Live Quiz (Question 1)</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowSessionModal(true)}
+                    className="px-8 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm transition flex items-center justify-center gap-2 mx-auto border border-slate-700"
+                  >
+                    <span>⚠️ Activate a Lobby to Enable Launch</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* ── STAGE ACTIVE QUESTION SCREEN ── */}
-        {gameState === "QUESTION" && (
+        {/* ── STAGE ACTIVE QUESTION & IN-PLACE ANSWER REVEAL ── */}
+        {(gameState === "QUESTION" || gameState === "ANSWER_REVEAL") && (
           <div className="space-y-6 my-auto animate-in fade-in duration-150">
+            {/* Header: Bigger 'Question X of Y' font, removed specialty */}
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-2xl">
               <div>
-                <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-sky-500/10 text-sky-400 border border-sky-500/20 inline-block mb-2">
-                  {activeQuestion.specialty}
-                </span>
-                <div className="text-xs text-slate-400 font-bold">
+                <div className="text-2xl sm:text-4xl font-black text-white tracking-tight">
                   Question {currentQIndex + 1} of {QUIZ_QUESTIONS.length}
                 </div>
-                <h2 className="text-lg sm:text-2xl font-black text-white mt-1">
-                  {activeQuestion.prompt}
-                </h2>
               </div>
 
-              <div
-                className={`w-28 h-28 rounded-3xl flex flex-col items-center justify-center shrink-0 border-4 font-mono shadow-2xl transition-all ${
-                  timeLeft <= 5
-                    ? "bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse scale-105"
-                    : "bg-slate-950 border-emerald-500 text-emerald-400"
-                }`}
-              >
-                <span className="text-4xl font-black">{timeLeft}</span>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">
-                  SEC
-                </span>
-              </div>
+              {gameState === "QUESTION" ? (
+                <div
+                  className={`w-28 h-28 rounded-3xl flex flex-col items-center justify-center shrink-0 border-4 font-mono shadow-2xl transition-all ${
+                    timeLeft <= 5
+                      ? "bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse scale-105"
+                      : "bg-slate-950 border-emerald-500 text-emerald-400"
+                  }`}
+                >
+                  <span className="text-4xl font-black">{timeLeft}</span>
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">
+                    SEC
+                  </span>
+                </div>
+              ) : (
+                <div className="px-5 py-3 rounded-2xl bg-purple-500/20 border border-purple-500/30 text-purple-300 font-mono text-sm font-bold flex items-center gap-2 shrink-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-purple-400 animate-ping" />
+                  <span>Scoreboard in {stageCountdown}s</span>
+                </div>
+              )}
             </div>
 
-            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
-                Clinical Case Presentation
+            {/* In-Place Kahoot Correct Answer Banner */}
+            {gameState === "ANSWER_REVEAL" && (
+              <div className="animate-in zoom-in-95 duration-200">
+                <div className="py-4 px-8 rounded-2xl bg-[#26890c] border-2 border-emerald-300 text-white shadow-2xl shadow-emerald-500/30 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <span className="w-11 h-11 rounded-full bg-white text-[#26890c] flex items-center justify-center font-black text-2xl shadow-lg">
+                      ✔
+                    </span>
+                    <div>
+                      <div className="text-xs uppercase font-extrabold tracking-widest text-emerald-200">
+                        Official Answer
+                      </div>
+                      <div className="text-2xl sm:text-3xl font-black tracking-tight">
+                        Option {activeQuestion.correctAnswer}: {activeQuestion.options.find((o) => o.key === activeQuestion.correctAnswer)?.text}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 text-xs font-extrabold">
+                    <span>Responses: {liveAnswerCount} / {lobbyPlayers.length || "All"}</span>
+                  </div>
+                </div>
               </div>
-              <p className="text-base sm:text-xl text-slate-200 leading-relaxed font-medium">
-                {activeQuestion.scenario}
+            )}
+
+            {/* Clean Merged Question Card */}
+            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+              <p className="text-lg sm:text-2xl text-slate-100 leading-relaxed font-bold">
+                {activeQuestion.question || `${activeQuestion.scenario || ""} ${activeQuestion.prompt || ""}`.trim()}
               </p>
             </div>
 
+            {/* Option Cards: Kahoot Full-Color Buttons */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {activeQuestion.options.map((opt) => {
-                const theme = OPTION_THEMES[opt.key];
+                const theme = KAHOOT_OPTION_THEMES[opt.key] || KAHOOT_OPTION_THEMES.A;
+                const isRevealed = gameState === "ANSWER_REVEAL";
+                const isCorrect = isRevealed && opt.key === activeQuestion.correctAnswer;
+
+                let cardStyle = "";
+                let badge = null;
+
+                if (isRevealed) {
+                  if (isCorrect) {
+                    cardStyle = "bg-[#26890c] text-white border-2 border-white ring-4 ring-green-400/50 shadow-2xl scale-[1.02] font-black";
+                    badge = (
+                      <span className="w-9 h-9 rounded-full bg-white text-[#26890c] flex items-center justify-center font-black text-lg shadow-md shrink-0">
+                        ✔
+                      </span>
+                    );
+                  } else {
+                    cardStyle = "bg-[#250f3c] border-white/10 text-white/40 opacity-30";
+                    badge = (
+                      <span className="w-8 h-8 rounded-full bg-slate-900 text-slate-500 flex items-center justify-center font-bold text-sm shrink-0">
+                        ✖
+                      </span>
+                    );
+                  }
+                } else {
+                  cardStyle = `${theme.bg} text-white shadow-xl hover:brightness-110`;
+                }
+
                 return (
                   <div
                     key={opt.key}
-                    className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center gap-4 shadow-lg"
+                    className={`rounded-2xl p-5 flex items-center justify-between gap-4 border border-white/10 transition-all ${cardStyle}`}
                   >
-                    <span
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white text-lg shrink-0 shadow-lg ${theme.bg}`}
-                    >
-                      {opt.key}
-                    </span>
-                    <span className="text-base sm:text-lg font-bold text-slate-100">
-                      {opt.text}
-                    </span>
+                    <div className="flex items-center gap-4 min-w-0">
+                      <span
+                        className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black shrink-0 text-xl shadow-lg ${
+                          isRevealed && isCorrect ? "bg-white text-[#26890c]" : "bg-black/20 text-white"
+                        }`}
+                      >
+                        {theme.shape}
+                      </span>
+                      <span className={`text-base sm:text-xl truncate ${isRevealed && isCorrect ? "font-black" : "font-bold"}`}>
+                        {opt.text}
+                      </span>
+                    </div>
+
+                    {badge}
                   </div>
                 );
               })}
             </div>
 
-            <div className="flex justify-between items-center text-xs text-slate-400 px-2 font-mono">
-              <span>
-                Responses Recorded:{" "}
-                <strong className="text-emerald-400 font-bold">{liveAnswerCount}</strong>
-              </span>
-              <span>Audience Total: {lobbyPlayers.length || "Live Room"}</span>
-            </div>
-          </div>
-        )}
-
-        {/* ── STAGE REVEAL SCREEN ── */}
-        {gameState === "ANSWER_REVEAL" && (
-          <div className="space-y-6 my-auto animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-slate-900 border-2 border-emerald-500/80 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
-              <div>
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block mb-1">
-                  Correct Option
+            {gameState === "QUESTION" && (
+              <div className="flex justify-between items-center text-xs text-slate-400 px-2 font-mono">
+                <span>
+                  Responses Recorded:{" "}
+                  <strong className="text-emerald-400 font-bold">{liveAnswerCount}</strong>
                 </span>
-                <h2 className="text-2xl sm:text-3xl font-black text-white flex items-center gap-3">
-                  <span className="w-10 h-10 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center text-lg font-black">
-                    {activeQuestion.correctAnswer}
-                  </span>
-                  <span>
-                    {activeQuestion.options.find((o) => o.key === activeQuestion.correctAnswer)?.text}
-                  </span>
-                </h2>
-              </div>
-            </div>
-
-            {revealStats && (
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
-                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">
-                  Audience Response Breakdown
-                </div>
-                <div className="space-y-3">
-                  {activeQuestion.options.map((opt) => {
-                    const count = (revealStats.stats && revealStats.stats[opt.key]) ?? (revealStats.distribution && revealStats.distribution[opt.key]) ?? (revealStats[opt.key]) ?? 0;
-                    const total = revealStats.totalAnswered || revealStats.totalAnswers || Math.max(1, Object.values(revealStats.stats || revealStats || {}).reduce((a, b) => (typeof b === "number" ? a + b : a), 0));
-                    const pct = Math.round((count / Math.max(1, total)) * 100);
-                    const isCorrect = opt.key === activeQuestion.correctAnswer;
-
-                    return (
-                      <div key={opt.key} className="space-y-1">
-                        <div className="flex justify-between text-xs font-bold">
-                          <span className={isCorrect ? "text-emerald-400" : "text-slate-300"}>
-                            {opt.key}. {opt.text} {isCorrect && "✓"}
-                          </span>
-                          <span className="font-mono text-slate-400">
-                            {count} ({pct}%)
-                          </span>
-                        </div>
-                        <div className="w-full h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-                          <div
-                            style={{ width: `${pct}%` }}
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              isCorrect ? "bg-emerald-500" : "bg-slate-700"
-                            }`}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <span>Audience Total: {lobbyPlayers.length || "Live Room"}</span>
               </div>
             )}
-
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
-              <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2">
-                Clinical Rationale &amp; Key Learning Point
-              </div>
-              <p className="text-sm sm:text-base text-slate-200 leading-relaxed">
-                {activeQuestion.explanation}
-              </p>
-            </div>
           </div>
         )}
 
-        {/* ── STAGE LEADERBOARD SCREEN ── */}
+        {/* ── STAGE SCOREBOARD SCREEN (KAHOOT STYLE) ── */}
         {gameState === "LEADERBOARD" && (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 sm:p-12 shadow-2xl my-auto">
+          <div className="bg-[#2b0f42] border-2 border-[#572182] rounded-3xl p-8 sm:p-12 shadow-2xl my-auto text-white relative overflow-hidden max-w-4xl mx-auto w-full">
+            <div className="absolute -top-32 -right-32 w-64 h-64 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
+
             <div className="text-center mb-8">
-              <span className="px-4 py-1.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 inline-block mb-3">
-                LIVE ARENA STANDINGS
+              <span className="px-4 py-1.5 rounded-full text-xs font-black bg-purple-500/20 text-purple-300 border border-purple-500/30 inline-block mb-3 uppercase tracking-widest">
+                STAGE AUDITORIUM STANDINGS
               </span>
-              <h2 className="text-3xl sm:text-4xl font-black text-white">Top Contenders</h2>
+              <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
+                Scoreboard
+              </h2>
             </div>
 
-            <div className="space-y-3 max-w-3xl mx-auto">
-              {leaderboardData.slice(0, 10).map((p, idx) => (
+            <div className="space-y-3.5 max-w-2xl mx-auto mb-6">
+              {leaderboardData.slice(0, 5).map((p, idx) => (
                 <div
                   key={p.id || idx}
-                  className={`flex items-center justify-between p-4 rounded-2xl border text-sm font-bold transition ${
+                  className={`flex items-center justify-between px-6 py-4 rounded-2xl border text-base sm:text-lg font-bold transition ${
                     idx === 0
-                      ? "bg-amber-500/20 border-amber-400 text-amber-200 shadow-lg scale-[1.02]"
-                      : idx === 1
-                      ? "bg-slate-800/90 border-slate-600 text-slate-200"
-                      : idx === 2
-                      ? "bg-amber-900/20 border-amber-800/40 text-amber-400"
-                      : "bg-slate-950/60 border-slate-800 text-slate-300"
+                      ? "bg-gradient-to-r from-amber-500/25 to-yellow-500/10 border-amber-400/80 text-white shadow-xl scale-[1.02]"
+                      : "bg-white/5 border-white/10 text-slate-100 hover:bg-white/10"
                   }`}
                 >
-                  <div className="flex items-center gap-4">
-                    <span className="w-8 font-black text-slate-400 text-base">#{idx + 1}</span>
-                    <span className="text-base">{p.name}</span>
+                  <div className="flex items-center gap-4 min-w-0">
+                    <span className="w-8 font-black text-purple-300 text-lg">
+                      #{idx + 1}
+                    </span>
+                    <span className="font-extrabold truncate max-w-[280px] sm:max-w-[360px]">
+                      {p.name}
+                    </span>
                     {p.regNumber && (
-                      <span className="text-xs text-slate-500 font-mono hidden sm:inline">
+                      <span className="text-xs text-purple-300 font-mono hidden sm:inline">
                         [{p.regNumber}]
                       </span>
                     )}
                   </div>
-                  <span className="font-mono text-emerald-400 text-base font-black">
-                    {p.score.toLocaleString()} pts
-                  </span>
+
+                  <div className="flex items-center gap-2.5 shrink-0">
+                    <span className="font-mono text-emerald-400 font-black text-lg">
+                      {p.score.toLocaleString()}
+                    </span>
+                    <span className="text-emerald-400 text-sm font-black">▲</span>
+                  </div>
                 </div>
               ))}
+
+              {leaderboardData.length === 0 && (
+                <div className="text-center py-8 text-sm text-purple-300 italic">
+                  Scores are computing...
+                </div>
+              )}
+            </div>
+
+            <div className="text-center text-xs text-purple-300 font-medium">
+              {pacingMode === "auto" && stageCountdown > 0 ? (
+                <span>Next question starting in {stageCountdown}s...</span>
+              ) : (
+                <span>Click "Next Question" in top stage controls to advance</span>
+              )}
             </div>
           </div>
         )}
@@ -936,6 +1244,65 @@ export function QuizMaster() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Full Top Results Table */}
+            <div className="mt-10 max-w-3xl mx-auto bg-slate-950/80 border border-slate-800 rounded-3xl p-6 text-left shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                <div className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                  <span>📋</span>
+                  <span>Top Results &amp; Final Rankings ({leaderboardData.length} Total)</span>
+                </div>
+                <span className="text-xs text-slate-400 font-mono">
+                  {activeSession?.name || "Active Round"}
+                </span>
+              </div>
+
+              <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                {leaderboardData.map((p, idx) => (
+                  <div
+                    key={p.id || idx}
+                    className={`flex items-center justify-between px-4 py-3 rounded-xl border transition ${
+                      idx === 0
+                        ? "bg-amber-500/15 border-amber-500/50 text-white font-black"
+                        : idx === 1
+                        ? "bg-slate-800/80 border-slate-600 text-slate-100 font-bold"
+                        : idx === 2
+                        ? "bg-amber-950/30 border-amber-700/40 text-amber-100 font-bold"
+                        : "bg-white/5 border-white/5 text-slate-200"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-8 font-black text-purple-400 text-sm">
+                        #{idx + 1}
+                      </span>
+                      <span className="font-bold truncate max-w-[240px] sm:max-w-[340px]">
+                        {p.name}
+                      </span>
+                      {p.regNumber && (
+                        <span className="text-xs text-slate-400 font-mono">
+                          [{p.regNumber}]
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-4 shrink-0">
+                      <span className="text-xs text-slate-400 font-mono hidden sm:inline">
+                        {p.streak || 0} streak 🔥
+                      </span>
+                      <span className="font-mono text-emerald-400 font-black text-sm sm:text-base">
+                        {p.score.toLocaleString()} pts
+                      </span>
+                    </div>
+                  </div>
+                ))}
+
+                {leaderboardData.length === 0 && (
+                  <div className="text-center py-6 text-xs text-slate-500 italic">
+                    No results recorded yet.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

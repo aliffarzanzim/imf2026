@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { navigate } from "../utils/navigation";
 
-const DEFAULT_WS_URL = "ws://localhost:3001";
+const DEFAULT_WS_URL = "wss://imf2026-quiz.crcck.workers.dev/ws";
 
 export function QuizEntry() {
   const [wsConnected, setWsConnected] = useState(false);
@@ -112,10 +112,21 @@ export function QuizEntry() {
     if (!playerName.trim()) return;
 
     setIsSubmitting(true);
+    let pid = sessionStorage.getItem("imf_quiz_pid") || localStorage.getItem("imf_quiz_pid");
+    if (!pid) {
+      pid = "doc_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+    }
+    sessionStorage.setItem("imf_quiz_pid", pid);
+    localStorage.setItem("imf_quiz_pid", pid);
+
+    sessionStorage.setItem("imf_quiz_name", playerName.trim());
     localStorage.setItem("imf_quiz_name", playerName.trim());
+
     if (regNumber.trim()) {
+      sessionStorage.setItem("imf_quiz_reg", regNumber.trim().toUpperCase());
       localStorage.setItem("imf_quiz_reg", regNumber.trim().toUpperCase());
     } else {
+      sessionStorage.removeItem("imf_quiz_reg");
       localStorage.removeItem("imf_quiz_reg");
     }
 

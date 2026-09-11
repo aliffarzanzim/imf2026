@@ -48,7 +48,7 @@ const OPTION_THEMES = {
   },
 };
 
-const DEFAULT_WS_URL = "ws://localhost:3001";
+const DEFAULT_WS_URL = "wss://imf2026-quiz.crcck.workers.dev/ws";
 const QUESTION_TIMER_SEC = 25;
 
 export function Quiz() {
