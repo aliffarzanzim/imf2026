@@ -999,7 +999,7 @@ export function Quiz() {
                 </div>
 
                 {/* Live ticker of joined players */}
-                <div className="flex flex-wrap gap-2 justify-center max-h-48 overflow-hidden">
+                <div className="flex flex-wrap gap-2 justify-center max-h-48 overflow-hidden mb-8">
                   {lobbyPlayers.map((p, i) => (
                     <span
                       key={p.id || i}
@@ -1008,6 +1008,24 @@ export function Quiz() {
                       {p.name}
                     </span>
                   ))}
+                  {lobbyPlayers.length === 0 && (
+                    <span className="text-xs text-slate-500 italic">
+                      Waiting for doctors to join from their phones...
+                    </span>
+                  )}
+                </div>
+
+                {/* Big Launch Button in Center */}
+                <div>
+                  <button
+                    onClick={() => sendHostAction("START_QUIZ")}
+                    className="px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-base shadow-2xl shadow-emerald-500/30 transition-transform active:scale-95 flex items-center justify-center gap-3 mx-auto"
+                  >
+                    <span>🚀 Launch Live Quiz (Question 1)</span>
+                  </button>
+                  <p className="text-[11px] text-slate-500 mt-2">
+                    Clicking this will broadcast Question 1 to all connected phones immediately.
+                  </p>
                 </div>
               </div>
             </div>
