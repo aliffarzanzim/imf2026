@@ -229,38 +229,8 @@ export function QuizEntry() {
 
       {/* Main Body */}
       <main className="flex-1 flex flex-col items-center justify-center p-4 max-w-lg mx-auto w-full">
-        {!wsConnected ? (
-          /* ── 1. WAITING FOR QUIZ MASTER SCREEN ── */
-          <div className="w-full bg-slate-900/90 border border-slate-800/90 rounded-3xl p-8 sm:p-10 text-center shadow-2xl backdrop-blur-xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="absolute -top-20 -right-20 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-500/20 to-orange-500/20 border-2 border-amber-500/30 flex items-center justify-center mx-auto mb-6 shadow-xl relative">
-              <span className="w-3 h-3 rounded-full bg-amber-400 animate-ping absolute" />
-              <span className="text-3xl">⏱️</span>
-            </div>
-
-            <span className="px-3.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30 inline-block mb-3 animate-pulse">
-              Stage Standing By
-            </span>
-
-            <h1 className="text-xl sm:text-2xl font-black text-white mb-3 tracking-tight leading-snug">
-              Waiting for the Quiz Master to start the quiz, please wait...
-            </h1>
-
-            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed mb-8">
-              The stage engine is getting prepared. As soon as the Quiz Master activates the live round, this screen will automatically open for you.
-            </p>
-
-            <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 flex items-center justify-center gap-3">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-              <span className="text-xs font-mono text-slate-400">
-                Listening for auditorium live tunnel...
-              </span>
-            </div>
-          </div>
-        ) : playerDetails && (isSuccess || !lookupError) ? (
-          /* ── 2. "YOU ARE IN" CONFIRMATION CARD (Matches exact Kahoot format requested) ── */
+        {playerDetails && (isSuccess || !lookupError) ? (
+          /* ── 1. "YOU ARE IN" CONFIRMATION CARD (Matches exact Kahoot format requested) ── */
           <div className="w-full bg-[#2b0f42] border-2 border-[#572182] rounded-3xl p-8 sm:p-10 shadow-2xl text-center animate-in fade-in zoom-in-95 duration-200 text-white relative overflow-hidden">
             <div className="absolute -top-20 -right-20 w-48 h-48 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
@@ -303,7 +273,7 @@ export function QuizEntry() {
             </div>
           </div>
         ) : (
-          /* ── 3. EMAIL ENTRY FORM (NO EMAILS SENT, INSTANT LOOKUP) ── */
+          /* ── 2. EMAIL ENTRY FORM (PRERENDERED IMMEDIATELY ON FIRST PAINT, ZERO FLASH) ── */
           <div className="w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center animate-in fade-in zoom-in-95 duration-200">
             <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-black text-slate-950 text-2xl mx-auto mb-4 shadow-xl shadow-emerald-500/20">
               ⚡
