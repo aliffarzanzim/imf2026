@@ -1,0 +1,13 @@
+name = "imf2026-quiz"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+account_id = "7789ee3c4c6af6cf544946edfa32a097"
+
+[durable_objects]
+bindings = [
+  { name = "QUIZ_ROOM", class_name = "QuizRoom" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["QuizRoom"]
