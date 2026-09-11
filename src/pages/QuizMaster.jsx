@@ -52,9 +52,20 @@ export function QuizMaster() {
   const [leaderboardData, setLeaderboardData] = useState([]);
   const [revealStats, setRevealStats] = useState(null);
   const [liveAnswerCount, setLiveAnswerCount] = useState(0);
+  const [pacingMode, setPacingMode] = useState("auto"); // "auto" or "manual"
+  const [stageCountdown, setStageCountdown] = useState(0);
 
   const wsRef = useRef(null);
   const timerRef = useRef(null);
+
+  // Stage countdown for auto-advance in ANSWER_REVEAL and LEADERBOARD
+  useEffect(() => {
+    if (stageCountdown <= 0) return;
+    const interval = setInterval(() => {
+      setStageCountdown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [stageCountdown]);
 
   // Check auth on mount
   useEffect(() => {
@@ -165,6 +176,12 @@ export function QuizMaster() {
         setHostAuthed(true);
         setGameState(msg.gameState || "LOBBY");
         setCurrentQIndex(msg.currentQuestionIdx || 0);
+        if (msg.pacingMode) setPacingMode(msg.pacingMode);
+        break;
+
+      case "PACING_MODE_UPDATED":
+        setPacingMode(msg.pacingMode || "auto");
+        if (msg.pacingMode === "manual") setStageCountdown(0);
         break;
 
       case "HOST_LOGIN_FAILED":
@@ -181,6 +198,8 @@ export function QuizMaster() {
         setTimeLeft(msg.question.durationSec || QUESTION_TIMER_SEC);
         setRevealStats(null);
         setLiveAnswerCount(0);
+        setStageCountdown(0);
+        if (msg.pacingMode) setPacingMode(msg.pacingMode);
         startClientTimer(msg.question.durationSec || QUESTION_TIMER_SEC);
         break;
 
@@ -192,21 +211,27 @@ export function QuizMaster() {
         if (timerRef.current) clearInterval(timerRef.current);
         setGameState("ANSWER_REVEAL");
         setRevealStats(msg.stats);
+        if (msg.pacingMode) setPacingMode(msg.pacingMode);
+        setStageCountdown(msg.autoNextSec || (msg.pacingMode === "auto" ? 6 : 0));
         break;
 
       case "LEADERBOARD_VIEW":
         setGameState("LEADERBOARD");
         setLeaderboardData(msg.top10 || []);
+        if (msg.pacingMode) setPacingMode(msg.pacingMode);
+        setStageCountdown(msg.autoNextSec || (msg.pacingMode === "auto" ? 6 : 0));
         break;
 
       case "QUIZ_FINISHED":
         setGameState("PODIUM");
         setLeaderboardData(msg.fullLeaderboard || []);
+        setStageCountdown(0);
         playFanfareSound(muted);
         break;
 
       case "RESET_TO_LOBBY":
         setGameState("LOBBY");
+        setStageCountdown(0);
         break;
 
       default:
@@ -233,16 +258,23 @@ export function QuizMaster() {
     }, 1000);
   }
 
-  function sendHostAction(action) {
+  function sendHostAction(action, extra = {}) {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(
         JSON.stringify({
           type: "HOST_ACTION",
           action,
           pin: hostPin,
+          ...extra,
         })
       );
     }
+  }
+
+  function handleSetPacingMode(mode) {
+    setPacingMode(mode);
+    if (mode === "manual") setStageCountdown(0);
+    sendHostAction("SET_PACING_MODE", { mode });
   }
 
   async function handleLogin(e) {
@@ -481,16 +513,46 @@ export function QuizMaster() {
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-8 flex flex-col justify-between">
         {/* Stage Host Controls Bar */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 mb-6 shadow-xl">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="px-3 py-1 rounded-full text-xs font-black bg-purple-500/20 text-purple-300 border border-purple-500/40">
               STAGE CONTROL
             </span>
             <span className="text-xs text-slate-400">
               Round: <strong className="text-white font-mono uppercase">{gameState}</strong>
             </span>
+
+            {/* Dual Pacing Mode Switcher Pill */}
+            <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 ml-2">
+              <button
+                type="button"
+                onClick={() => handleSetPacingMode("auto")}
+                title="Automatically reveals right/wrong and smoothly moves to leaderboard and next question like Kahoot"
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
+                  pacingMode === "auto"
+                    ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <span>⚡</span>
+                <span>Auto-Advance (Kahoot)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetPacingMode("manual")}
+                title="Quiz master manually controls when to reveal answers, show leaderboard, and go to next question"
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
+                  pacingMode === "manual"
+                    ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <span>🖐️</span>
+                <span>Manual Control</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {gameState === "LOBBY" && (
               <button
                 onClick={() => sendHostAction("START_QUIZ")}
@@ -510,21 +572,65 @@ export function QuizMaster() {
             )}
 
             {gameState === "ANSWER_REVEAL" && (
-              <button
-                onClick={() => sendHostAction("SHOW_LEADERBOARD")}
-                className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-sky-500/20"
-              >
-                🏆 Show Leaderboard
-              </button>
+              pacingMode === "auto" && stageCountdown > 0 ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-purple-300 bg-purple-500/10 border border-purple-500/20 px-3 py-2 rounded-xl flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+                    <span>Leaderboard in {stageCountdown}s...</span>
+                  </span>
+                  <button
+                    onClick={() => sendHostAction("SHOW_LEADERBOARD")}
+                    className="px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-sky-500/20"
+                  >
+                    Show Now →
+                  </button>
+                  <button
+                    onClick={() => handleSetPacingMode("manual")}
+                    title="Pause auto-advance and switch to manual control"
+                    className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                  >
+                    ⏸️ Pause
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => sendHostAction("SHOW_LEADERBOARD")}
+                  className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-sky-500/20"
+                >
+                  🏆 Show Leaderboard
+                </button>
+              )
             )}
 
             {gameState === "LEADERBOARD" && (
-              <button
-                onClick={() => sendHostAction("NEXT_QUESTION")}
-                className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-emerald-500/20"
-              >
-                Next Question →
-              </button>
+              pacingMode === "auto" && stageCountdown > 0 ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-xl flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                    <span>Next Question in {stageCountdown}s...</span>
+                  </span>
+                  <button
+                    onClick={() => sendHostAction("NEXT_QUESTION")}
+                    className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-emerald-500/20"
+                  >
+                    Next Question →
+                  </button>
+                  <button
+                    onClick={() => handleSetPacingMode("manual")}
+                    title="Pause auto-advance and switch to manual control"
+                    className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                  >
+                    ⏸️ Pause
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => sendHostAction("NEXT_QUESTION")}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-emerald-500/20"
+                >
+                  Next Question →
+                </button>
+              )
             )}
 
             <button
@@ -533,7 +639,7 @@ export function QuizMaster() {
                   sendHostAction("RESET");
                 }
               }}
-              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-semibold"
+              className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-semibold transition"
             >
               Reset
             </button>
@@ -691,9 +797,9 @@ export function QuizMaster() {
                 </div>
                 <div className="space-y-3">
                   {activeQuestion.options.map((opt) => {
-                    const count = revealStats.distribution?.[opt.key] || 0;
-                    const total = revealStats.totalAnswers || 1;
-                    const pct = Math.round((count / total) * 100);
+                    const count = (revealStats.stats && revealStats.stats[opt.key]) ?? (revealStats.distribution && revealStats.distribution[opt.key]) ?? (revealStats[opt.key]) ?? 0;
+                    const total = revealStats.totalAnswered || revealStats.totalAnswers || Math.max(1, Object.values(revealStats.stats || revealStats || {}).reduce((a, b) => (typeof b === "number" ? a + b : a), 0));
+                    const pct = Math.round((count / Math.max(1, total)) * 100);
                     const isCorrect = opt.key === activeQuestion.correctAnswer;
 
                     return (

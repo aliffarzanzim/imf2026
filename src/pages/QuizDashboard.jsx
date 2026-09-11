@@ -71,9 +71,38 @@ export function QuizDashboard() {
   const [playerRank, setPlayerRank] = useState(null);
   const [leaderboardData, setLeaderboardData] = useState([]);
   const [lobbyPlayers, setLobbyPlayers] = useState([]);
+  const [revealCountdown, setRevealCountdown] = useState(0);
+  const [leaderboardCountdown, setLeaderboardCountdown] = useState(0);
+  const [pacingMode, setPacingMode] = useState("auto"); // "auto" or "manual"
 
   const wsRef = useRef(null);
   const timerRef = useRef(null);
+
+  // Auto countdown for smooth transition to leaderboard
+  useEffect(() => {
+    if (gameState !== "ANSWER_REVEAL" || revealCountdown <= 0) return;
+    const interval = setInterval(() => {
+      setRevealCountdown((c) => {
+        if (c <= 1) {
+          if (pacingMode === "auto") {
+            setGameState("LEADERBOARD");
+          }
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [gameState, revealCountdown, pacingMode]);
+
+  // Auto countdown on leaderboard before next question
+  useEffect(() => {
+    if (gameState !== "LEADERBOARD" || leaderboardCountdown <= 0) return;
+    const interval = setInterval(() => {
+      setLeaderboardCountdown((c) => Math.max(0, c - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [gameState, leaderboardCountdown]);
 
   // If no name set, redirect to /quiz
   useEffect(() => {
@@ -184,6 +213,11 @@ export function QuizDashboard() {
       case "JOINED_SUCCESS":
         setGameState(msg.gameState || "LOBBY");
         setCurrentQIndex(msg.currentQuestionIdx || 0);
+        if (msg.pacingMode) setPacingMode(msg.pacingMode);
+        break;
+
+      case "PACING_MODE_UPDATED":
+        setPacingMode(msg.pacingMode || "auto");
         break;
 
       case "LOBBY_STATE":
@@ -198,6 +232,7 @@ export function QuizDashboard() {
         setAnswerSubmitted(false);
         setLastResult(null);
         setRevealStats(null);
+        if (msg.pacingMode) setPacingMode(msg.pacingMode);
         startClientTimer(msg.question.durationSec || QUESTION_TIMER_SEC);
         break;
 
@@ -212,6 +247,8 @@ export function QuizDashboard() {
         setScore(msg.totalScore || 0);
         setStreak(msg.streak || 0);
         setRevealStats(msg.stats || null);
+        if (msg.pacingMode) setPacingMode(msg.pacingMode);
+        setRevealCountdown(msg.autoNextSec || (msg.pacingMode === "auto" ? 6 : 0));
 
         if (msg.isCorrect) {
           playCorrectSound(muted);
@@ -224,12 +261,16 @@ export function QuizDashboard() {
         if (timerRef.current) clearInterval(timerRef.current);
         setGameState("ANSWER_REVEAL");
         setRevealStats(msg.stats);
+        if (msg.pacingMode) setPacingMode(msg.pacingMode);
+        setRevealCountdown(msg.autoNextSec || (msg.pacingMode === "auto" ? 6 : 0));
         break;
 
       case "LEADERBOARD_VIEW":
         setGameState("LEADERBOARD");
         setLeaderboardData(msg.top10 || []);
         if (msg.rank) setPlayerRank(msg.rank);
+        if (msg.pacingMode) setPacingMode(msg.pacingMode);
+        setLeaderboardCountdown(msg.autoNextSec || (msg.pacingMode === "auto" ? 6 : 0));
         break;
 
       case "QUIZ_FINISHED":
@@ -512,13 +553,82 @@ export function QuizDashboard() {
 
             {/* Clinical Explanation */}
             <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-left mb-4">
-              <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1.5">
-                Correct Answer: Option {lastResult.correctOption}
+              <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1.5 flex items-center gap-2">
+                <span className="w-5 h-5 rounded-md bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-xs border border-emerald-500/30 shrink-0">
+                  {lastResult.correctAnswer || lastResult.correctOption}
+                </span>
+                <span>
+                  Correct Answer: Option {lastResult.correctAnswer || lastResult.correctOption}
+                  {lastResult.correctText && ` — ${lastResult.correctText}`}
+                </span>
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">
                 {lastResult.explanation}
               </p>
             </div>
+
+            {/* Audience Answers Breakdown */}
+            {revealStats && (
+              <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-3 mb-4 text-left">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  Audience Answers Breakdown
+                </div>
+                <div className="grid grid-cols-5 gap-1.5 text-center">
+                  {["A", "B", "C", "D", "E"].map((letter) => {
+                    const count = (revealStats[letter] ?? revealStats.stats?.[letter] ?? 0);
+                    const isCorrect = letter === (lastResult.correctAnswer || lastResult.correctOption);
+                    return (
+                      <div
+                        key={letter}
+                        className={`p-1.5 rounded-lg border text-xs font-bold ${
+                          isCorrect
+                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300"
+                            : "bg-slate-900 border-slate-800 text-slate-400"
+                        }`}
+                      >
+                        <div className="text-[10px] opacity-75">{letter}</div>
+                        <div className="font-mono text-sm">{count}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Smooth Transition Indicator */}
+            {pacingMode === "auto" ? (
+              <div className="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-3.5 flex items-center justify-between text-xs text-slate-300">
+                <span className="flex items-center gap-2 font-medium">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span>
+                    {revealCountdown > 0
+                      ? `Moving to Leaderboard in ${revealCountdown}s...`
+                      : "Transitioning to Leaderboard..."}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setGameState("LEADERBOARD")}
+                  className="px-3 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold transition active:scale-95"
+                >
+                  View Now →
+                </button>
+              </div>
+            ) : (
+              <div className="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-3.5 flex items-center justify-between text-xs text-slate-300">
+                <span className="text-slate-400 flex items-center gap-2">
+                  <span>🖐️</span>
+                  <span>Quiz Master is discussing this case on stage...</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setGameState("LEADERBOARD")}
+                  className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition active:scale-95"
+                >
+                  View Standings →
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -557,6 +667,28 @@ export function QuizDashboard() {
                 </div>
               ))}
             </div>
+
+            {/* Pacing & Next Question Indicator */}
+            {pacingMode === "auto" ? (
+              <div className="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-3.5 flex items-center justify-between text-xs text-slate-300 mt-4">
+                <span className="flex items-center gap-2 font-medium">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+                  <span>
+                    {leaderboardCountdown > 0
+                      ? `Next question starting in ${leaderboardCountdown}s...`
+                      : "Get ready for the next question..."}
+                  </span>
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 font-mono font-bold text-xs border border-amber-500/20">
+                  ⚡ Auto-Advance
+                </span>
+              </div>
+            ) : (
+              <div className="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-3.5 text-center text-xs text-slate-400 mt-4 flex items-center justify-center gap-2">
+                <span>🖐️</span>
+                <span>Waiting for Quiz Master to start the next question...</span>
+              </div>
+            )}
           </div>
         )}
 
