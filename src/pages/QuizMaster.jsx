@@ -187,12 +187,19 @@ export function QuizMaster() {
     switch (msg.type) {
       case "HOST_LOGIN_SUCCESS":
         setHostAuthed(true);
-        setGameState(msg.gameState || "LOBBY");
-        setCurrentQIndex(msg.currentQuestionIdx || 0);
-        if (msg.pacingMode) setPacingMode(msg.pacingMode);
-        if (msg.players) setLobbyPlayers(msg.players);
         if (msg.sessions) setSessions(msg.sessions);
         if (msg.activeSession !== undefined) setActiveSession(msg.activeSession);
+        if (!msg.activeSession) {
+          setGameState("LOBBY");
+          setCurrentQIndex(0);
+          setStageCountdown(0);
+          if (timerRef.current) clearInterval(timerRef.current);
+        } else {
+          setGameState(msg.gameState || "LOBBY");
+          setCurrentQIndex(msg.currentQuestionIdx || 0);
+        }
+        if (msg.pacingMode) setPacingMode(msg.pacingMode);
+        if (msg.players) setLobbyPlayers(msg.players);
         break;
 
       case "PACING_MODE_UPDATED":
@@ -208,11 +215,23 @@ export function QuizMaster() {
         setLobbyPlayers(msg.players || []);
         if (msg.sessions) setSessions(msg.sessions);
         if (msg.activeSession !== undefined) setActiveSession(msg.activeSession);
+        if (!msg.activeSession && !msg.hasActiveSession) {
+          setGameState("LOBBY");
+          setCurrentQIndex(0);
+          setStageCountdown(0);
+          if (timerRef.current) clearInterval(timerRef.current);
+        }
         break;
 
       case "SESSIONS_UPDATED":
         if (msg.sessions) setSessions(msg.sessions);
         setActiveSession(msg.activeSession || null);
+        if (!msg.activeSession) {
+          setGameState("LOBBY");
+          setCurrentQIndex(0);
+          setStageCountdown(0);
+          if (timerRef.current) clearInterval(timerRef.current);
+        }
         break;
 
       case "LOBBY_ACTIVATED":
@@ -223,6 +242,12 @@ export function QuizMaster() {
 
       case "LOBBY_INACTIVATED":
         setActiveSession(null);
+        setGameState("LOBBY");
+        setCurrentQIndex(0);
+        setRevealStats(null);
+        setLiveAnswerCount(0);
+        setStageCountdown(0);
+        if (timerRef.current) clearInterval(timerRef.current);
         break;
 
       case "QUESTION_START":

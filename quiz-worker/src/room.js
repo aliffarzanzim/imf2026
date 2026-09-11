@@ -403,7 +403,16 @@ export class QuizRoom extends DurableObject {
     this.sessions = this.getAllSessions();
     this.activeSession = null;
     this.clearAllTimers();
+    this.gameState = "LOBBY";
+    this.currentQuestionIdx = 0;
+    this.questionStartTime = 0;
+    this.players.clear();
+    try {
+      this.ctx.storage.sql.exec("DELETE FROM live_state");
+    } catch (e) {}
+    this.persistLiveState();
 
+    this.broadcast({ type: "RESET_TO_LOBBY" });
     this.broadcast({
       type: "LOBBY_INACTIVATED",
       message: "Please wait while Quiz Master activates the lobby...",
@@ -415,12 +424,28 @@ export class QuizRoom extends DurableObject {
   deleteSession(sessionId) {
     const wasActive = this.activeSession && this.activeSession.id === sessionId;
 
-    this.ctx.storage.sql.exec("DELETE FROM sessions WHERE id = ?", sessionId);
+    try {
+      this.ctx.storage.sql.exec("DELETE FROM sessions WHERE id = ?", sessionId);
+      this.ctx.storage.sql.exec("DELETE FROM lobby_players WHERE session_id = ?", sessionId);
+      this.ctx.storage.sql.exec("DELETE FROM player_scores WHERE session_id = ?", sessionId);
+    } catch (e) {}
+
     this.sessions = this.getAllSessions();
 
-    if (wasActive) {
+    if (wasActive || this.sessions.length === 0 || !this.activeSession) {
       this.activeSession = null;
       this.clearAllTimers();
+      this.gameState = "LOBBY";
+      this.currentQuestionIdx = 0;
+      this.questionStartTime = 0;
+      this.players.clear();
+      try {
+        this.ctx.storage.sql.exec("DELETE FROM live_state");
+        this.ctx.storage.sql.exec("DELETE FROM question_answers");
+      } catch (e) {}
+      this.persistLiveState();
+
+      this.broadcast({ type: "RESET_TO_LOBBY" });
       this.broadcast({
         type: "LOBBY_INACTIVATED",
         message: "The active session was removed. Please wait while Quiz Master activates a lobby.",
@@ -515,6 +540,68 @@ export class QuizRoom extends DurableObject {
     const meta = ws.deserializeAttachment() || { id: "unknown", role: "player" };
     const socketId = meta.id;
 
+    // Handle Heartbeat Ping (keeps connection active)
+    if (msg.type === "PING") {
+      meta.lastPing = Date.now();
+      ws.serializeAttachment(meta);
+      try {
+        ws.send(JSON.stringify({ type: "PONG" }));
+      } catch (e) {}
+      return;
+    }
+
+    // Handle Explicit Tab Close / Leave Page
+    if (msg.type === "LEAVE") {
+      const pId = msg.playerId || meta.playerId;
+      try {
+        ws.serializeAttachment({ role: "closed", playerId: null, email: null });
+        ws.close(1000, "Normal leave");
+      } catch (e) {}
+      if (pId && this.players.has(pId)) {
+        const p = this.players.get(pId);
+        p.connected = false;
+        p.lastSeen = Date.now();
+        if (this.gameState === "LOBBY") {
+          this.players.delete(pId);
+          if (this.activeSession) {
+            this.deletePlayerFromDb(this.activeSession.id, pId);
+          }
+          this.broadcastLobbyStatus();
+        }
+      }
+      return;
+    }
+
+    // Handle Force Join / Session Takeover
+    if (msg.type === "FORCE_JOIN") {
+      const email = (msg.email || "").trim().toLowerCase();
+      const regNumber = (msg.regNumber || "").trim().toUpperCase();
+      for (const otherWs of this.ctx.getWebSockets()) {
+        if (otherWs !== ws) {
+          const otherMeta = otherWs.deserializeAttachment();
+          if (otherMeta) {
+            const sameEmail = email && otherMeta.email && otherMeta.email.toLowerCase() === email;
+            const sameReg = regNumber && otherMeta.regNumber && otherMeta.regNumber.toUpperCase() === regNumber;
+            if (sameEmail || sameReg) {
+              try {
+                otherWs.send(
+                  JSON.stringify({
+                    type: "SESSION_TRANSFERRED",
+                    message: "Your quiz session was transferred to another device.",
+                  })
+                );
+                otherWs.close(1000, "Transferred to new device");
+              } catch (e) {}
+              try {
+                otherWs.serializeAttachment({ role: "closed", playerId: null, email: null });
+              } catch (e) {}
+            }
+          }
+        }
+      }
+      msg.type = "JOIN";
+    }
+
     // 1. Host Authentication
     if (msg.type === "HOST_LOGIN") {
       const attempts = meta.failedPins || 0;
@@ -528,6 +615,38 @@ export class QuizRoom extends DurableObject {
         meta.role = "host";
         meta.failedPins = 0;
         ws.serializeAttachment(meta);
+
+        // If there is NO active session, Host MUST see clean LOBBY state!
+        if (!this.activeSession) {
+          this.gameState = "LOBBY";
+          this.currentQuestionIdx = 0;
+          this.clearAllTimers();
+          ws.send(
+            JSON.stringify({
+              type: "HOST_LOGIN_SUCCESS",
+              gameState: "LOBBY",
+              currentQuestionIdx: 0,
+              totalQuestions: QUIZ_QUESTIONS.length,
+              playerCount: 0,
+              players: [],
+              leaderboard: { top10: [], totalPlayers: 0 },
+              pacingMode: this.quizPacingMode,
+              sessions: this.sessions,
+              activeSession: null,
+            })
+          );
+          ws.send(
+            JSON.stringify({
+              type: "LOBBY_STATE",
+              players: [],
+              totalCount: 0,
+              activeSession: null,
+              sessions: this.sessions,
+              hasActiveSession: false,
+            })
+          );
+          return;
+        }
 
         // Re-load lobby players from SQLite to guarantee all joined players are visible
         if (this.activeSession) {
@@ -676,6 +795,7 @@ export class QuizRoom extends DurableObject {
 
       // Enforce single active device per registered email or registration number
       let activeOtherWs = null;
+      const now = Date.now();
       for (const otherWs of this.ctx.getWebSockets()) {
         if (otherWs !== ws) {
           const otherMeta = otherWs.deserializeAttachment();
@@ -689,11 +809,24 @@ export class QuizRoom extends DurableObject {
                 try {
                   otherWs.close(1000, "Replaced by reload");
                 } catch (e) {}
+                try {
+                  otherWs.serializeAttachment({ role: "closed", playerId: null, email: null });
+                } catch (e) {}
               } else {
-                // Different device: check if its WebSocket is genuinely open/active
-                if (otherWs.readyState === 1) {
+                // Check if other socket is genuinely responsive (ping received within last 6 seconds or joined within last 6 seconds)
+                const lastHeard = otherMeta.lastPing || otherMeta.joinedAt || 0;
+                const isAlive = (now - lastHeard) < 6000;
+                if (otherWs.readyState === 1 && isAlive) {
                   activeOtherWs = otherWs;
                   break;
+                } else {
+                  // Stale / dead socket whose tab was closed: terminate and purge it!
+                  try {
+                    otherWs.close(1000, "Stale socket purged");
+                  } catch (e) {}
+                  try {
+                    otherWs.serializeAttachment({ role: "closed", playerId: null, email: null });
+                  } catch (e) {}
                 }
               }
             }
@@ -717,6 +850,8 @@ export class QuizRoom extends DurableObject {
       meta.email = email;
       meta.regNumber = regNumber;
       meta.name = name;
+      meta.joinedAt = Date.now();
+      meta.lastPing = Date.now();
       ws.serializeAttachment(meta);
 
       let player = this.players.get(playerId);
@@ -1003,6 +1138,11 @@ export class QuizRoom extends DurableObject {
     const meta = ws.deserializeAttachment() || {};
     const pId = meta.playerId || meta.id;
     const email = meta.email;
+
+    // Immediately mark socket as closed in attachment so subsequent scans ignore it!
+    try {
+      ws.serializeAttachment({ role: "closed", playerId: null, email: null });
+    } catch (e) {}
 
     if (!pId) return;
 

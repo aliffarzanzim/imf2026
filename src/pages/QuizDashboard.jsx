@@ -248,9 +248,46 @@ export function QuizDashboard() {
 
     return () => {
       isUnmounted = true;
-      if (ws) ws.close();
+      if (ws) {
+        try {
+          ws.send(JSON.stringify({ type: "LEAVE", playerId, email: playerEmail }));
+          ws.close(1000, "Unmounted");
+        } catch (e) {}
+      }
     };
   }, [wsUrl, playerName, regNumber, playerId, playerEmail]);
+
+  // Heartbeat ping every 2.5s to keep active status fresh
+  useEffect(() => {
+    if (!wsConnected) return;
+    const interval = setInterval(() => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        try {
+          wsRef.current.send(JSON.stringify({ type: "PING" }));
+        } catch (e) {}
+      }
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [wsConnected]);
+
+  // When leaving page or closing tab, immediately notify backend
+  useEffect(() => {
+    const handleLeave = () => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        try {
+          wsRef.current.send(JSON.stringify({ type: "LEAVE", playerId, email: playerEmail }));
+          wsRef.current.close(1000, "User left page");
+        } catch (e) {}
+      }
+    };
+    window.addEventListener("pagehide", handleLeave);
+    window.addEventListener("beforeunload", handleLeave);
+    return () => {
+      window.removeEventListener("pagehide", handleLeave);
+      window.removeEventListener("beforeunload", handleLeave);
+      handleLeave();
+    };
+  }, [playerId, playerEmail]);
 
   function handleRetryJoin() {
     setIsRetrying(true);
@@ -292,6 +329,37 @@ export function QuizDashboard() {
     }, 1200);
   }
 
+  function handleForceJoin() {
+    setIsRetrying(true);
+    const payload = {
+      type: "FORCE_JOIN",
+      playerId,
+      name: playerName,
+      regNumber,
+      email: playerEmail,
+    };
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(payload));
+    } else if (wsUrl) {
+      try {
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+        ws.onopen = () => {
+          setWsConnected(true);
+          ws.send(JSON.stringify(payload));
+        };
+        ws.onmessage = (event) => {
+          try {
+            handleServerMessage(JSON.parse(event.data));
+          } catch (e) {}
+        };
+      } catch (e) {}
+    }
+    setTimeout(() => {
+      setIsRetrying(false);
+    }, 1200);
+  }
+
   function handleSwitchEmail() {
     sessionStorage.removeItem("imf_quiz_pid");
     localStorage.removeItem("imf_quiz_pid");
@@ -303,6 +371,7 @@ export function QuizDashboard() {
     localStorage.removeItem("imf_quiz_reg");
     if (wsRef.current) {
       try {
+        wsRef.current.send(JSON.stringify({ type: "LEAVE", playerId, email: playerEmail }));
         wsRef.current.close();
       } catch (e) {}
     }
@@ -316,6 +385,13 @@ export function QuizDashboard() {
         setDeviceBlocked(true);
         setDeviceBlockedMsg(
           msg.message || "You are currently active on another device or browser tab with this registered email."
+        );
+        break;
+
+      case "SESSION_TRANSFERRED":
+        setDeviceBlocked(true);
+        setDeviceBlockedMsg(
+          msg.message || "Your quiz session was transferred to another device or browser tab."
         );
         break;
 
@@ -340,7 +416,19 @@ export function QuizDashboard() {
 
       case "LOBBY_INACTIVATED":
         setIsLobbyActive(false);
-        setWaitingMessage(msg.message || "The lobby was paused by Quiz Master. Please wait while Quiz Master activates the lobby...");
+        setActiveSession(null);
+        setGameState("LOBBY");
+        setCurrentQIndex(0);
+        setSelectedOption(null);
+        setAnswerSubmitted(false);
+        setWaitingMessage(msg.message || "The active session was closed. Please wait while Quiz Master activates a lobby...");
+        break;
+
+      case "RESET_TO_LOBBY":
+        setGameState("LOBBY");
+        setCurrentQIndex(0);
+        setSelectedOption(null);
+        setAnswerSubmitted(false);
         break;
 
       case "LOBBY_ACTIVATED":
@@ -436,16 +524,6 @@ export function QuizDashboard() {
         if (msg.streak !== undefined) setStreak(msg.streak);
         if (msg.fullLeaderboard) setLeaderboardData(msg.fullLeaderboard);
         playFanfareSound(muted);
-        break;
-
-      case "RESET_TO_LOBBY":
-        setGameState("LOBBY");
-        setSelectedOption(null);
-        setAnswerSubmitted(false);
-        setScore(0);
-        setStreak(0);
-        setLastResult(null);
-        setFinalResults(null);
         break;
 
       default:
@@ -587,33 +665,45 @@ export function QuizDashboard() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <div className="flex flex-col gap-3">
               <button
                 type="button"
-                onClick={handleRetryJoin}
+                onClick={handleForceJoin}
                 disabled={isRetrying}
-                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm shadow-lg shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/25 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isRetrying ? (
                   <>
                     <div className="w-4 h-4 rounded-full border-2 border-slate-950 border-t-transparent animate-spin" />
-                    <span>Checking Connection...</span>
+                    <span>Switching Session to This Device...</span>
                   </>
                 ) : (
                   <>
-                    <span>🔄</span>
-                    <span>Check & Reconnect</span>
+                    <span>⚡</span>
+                    <span>Switch to This Device (Close Other Device)</span>
                   </>
                 )}
               </button>
 
-              <button
-                type="button"
-                onClick={handleSwitchEmail}
-                className="w-full sm:w-auto px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm border border-slate-700 transition active:scale-95"
-              >
-                Use Different Email
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleRetryJoin}
+                  disabled={isRetrying}
+                  className="w-full sm:w-1/2 px-5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  <span>🔄</span>
+                  <span>Check Again</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSwitchEmail}
+                  className="w-full sm:w-1/2 px-5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition active:scale-95"
+                >
+                  Use Different Email
+                </button>
+              </div>
             </div>
           </div>
         ) : (
