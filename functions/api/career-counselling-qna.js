@@ -1,12 +1,32 @@
 // functions/api/career-counselling-qna.js
 // Cloudflare Pages Function for Career Counselling Anonymous Q&A
+import { checkAdminAuth } from "./admin/_auth.js";
 
 const JSON_HEADERS = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, x-admin-password",
 };
+
+async function isCallerAdmin(request, env) {
+  try {
+    const isAuthed = await checkAdminAuth(request, env);
+    if (isAuthed) return true;
+
+    const passHeader = request.headers.get("x-admin-password");
+    if (passHeader && env.ADMIN_PASSWORD && passHeader.trim() === env.ADMIN_PASSWORD.trim()) {
+      return true;
+    }
+
+    const url = new URL(request.url);
+    const passQuery = url.searchParams.get("adminPassword");
+    if (passQuery && env.ADMIN_PASSWORD && passQuery.trim() === env.ADMIN_PASSWORD.trim()) {
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
 
 // Handle CORS preflight
 export async function onRequestOptions() {
@@ -62,14 +82,28 @@ export async function onRequestGet(context) {
 
     const url = new URL(request.url);
     const emailQuery = (url.searchParams.get("email") || "").trim().toLowerCase();
+    const isAdmin = await isCallerAdmin(request, env);
 
-    const { results } = await env.DB.prepare(`
+    let query = `
       SELECT id, question, email, created_at, updated_at
       FROM career_counselling_questions
       ORDER BY id DESC
-    `).all();
+    `;
 
-    // Map rows to preserve complete anonymity while identifying own questions for edit/delete
+    if (isAdmin) {
+      query = `
+        SELECT 
+          q.id, q.question, q.email, q.created_at, q.updated_at,
+          r.full_name, r.reg_number, r.institution
+        FROM career_counselling_questions q
+        LEFT JOIN registrations r ON LOWER(TRIM(r.email)) = LOWER(TRIM(q.email))
+        ORDER BY q.id DESC
+      `;
+    }
+
+    const { results } = await env.DB.prepare(query).all();
+
+    // Map rows to preserve complete anonymity for participants, while disclosing name & email to admin
     const questions = (results || []).map((row) => {
       const isOwner = Boolean(
         emailQuery &&
@@ -83,11 +117,17 @@ export async function onRequestGet(context) {
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         isOwner,
+        ...(isAdmin ? {
+          submitterEmail: row.email,
+          submitterName: row.full_name || "Registered Delegate",
+          submitterReg: row.reg_number || null,
+          submitterInstitution: row.institution || null,
+        } : {}),
       };
     });
 
     return new Response(
-      JSON.stringify({ success: true, questions }),
+      JSON.stringify({ success: true, questions, isAdmin }),
       { status: 200, headers: JSON_HEADERS }
     );
   } catch (err) {
@@ -344,7 +384,9 @@ export async function onRequestDelete(context) {
       );
     }
 
-    if (existing.email.trim().toLowerCase() !== email) {
+    const isAdmin = await isCallerAdmin(request, env);
+
+    if (!isAdmin && existing.email.trim().toLowerCase() !== email) {
       return new Response(
         JSON.stringify({ success: false, error: "Unauthorized: You can only delete your own questions." }),
         { status: 403, headers: JSON_HEADERS }

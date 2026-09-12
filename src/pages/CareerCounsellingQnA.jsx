@@ -18,14 +18,18 @@ import {
   UserCheck,
   LogOut,
   Sparkles,
+  KeyRound,
+  Eye,
 } from "lucide-react";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 import { navigate } from "../utils/navigation";
+import { getAdminToken } from "../utils/api";
 
 const STORAGE_KEY = "imf_career_counselling_email";
 const LEGACY_STORAGE_KEY = "imf_career_club_email";
 const LOCAL_QUESTIONS_KEY = "imf_career_counselling_local_questions";
+const ADMIN_PASS_KEY = "imf_admin_qna_pass";
 
 function formatTimestamp(dateStr) {
   if (!dateStr) return "Recently";
@@ -74,6 +78,19 @@ export function CareerCounsellingQnA() {
       return false;
     }
   });
+
+  // Admin View State
+  const [isAdmin, setIsAdmin] = useState(() => {
+    try {
+      return Boolean(getAdminToken() || sessionStorage.getItem(ADMIN_PASS_KEY));
+    } catch (_) {
+      return false;
+    }
+  });
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState("");
+  const [adminLoginError, setAdminLoginError] = useState("");
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(false);
 
   // Questions State
   const [questions, setQuestions] = useState([]);
@@ -134,19 +151,42 @@ export function CareerCounsellingQnA() {
     } catch (_) {}
   }
 
+  // Helper to build request headers with admin auth
+  function buildAuthHeaders() {
+    const headers = { "Content-Type": "application/json" };
+    try {
+      const token = getAdminToken();
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const savedPass = sessionStorage.getItem(ADMIN_PASS_KEY);
+      if (savedPass) headers["x-admin-password"] = savedPass;
+    } catch (_) {}
+    return headers;
+  }
+
   // Fetch Questions
-  async function loadQuestions(userEmail = email) {
+  async function loadQuestions(userEmail = email, overridePassword = null) {
     setIsLoadingQuestions(true);
     setFetchError("");
 
+    const headers = buildAuthHeaders();
+    if (overridePassword) {
+      headers["x-admin-password"] = overridePassword;
+    }
+
     try {
-      const resp = await fetch(`/api/career-counselling-qna?email=${encodeURIComponent(userEmail)}`);
+      const resp = await fetch(
+        `/api/career-counselling-qna?email=${encodeURIComponent(userEmail)}`,
+        { headers }
+      );
       if (!resp.ok) {
         throw new Error(`Server returned ${resp.status}`);
       }
       const data = await resp.json();
       if (data.success && Array.isArray(data.questions)) {
         setQuestions(data.questions);
+        if (data.isAdmin) {
+          setIsAdmin(true);
+        }
         return;
       }
       throw new Error(data.error || "Failed to load questions");
@@ -185,7 +225,7 @@ export function CareerCounsellingQnA() {
     try {
       const resp = await fetch("/api/career-counselling-qna", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: buildAuthHeaders(),
         body: JSON.stringify({
           action: "verify-email",
           email: cleanEmail,
@@ -214,7 +254,6 @@ export function CareerCounsellingQnA() {
       loadQuestions(cleanEmail);
     } catch (err) {
       console.warn("Network check error, attempting offline/fallback verification:", err);
-      // If network call fails (e.g. proxying or local testing), allow proceeding with notice
       try {
         localStorage.setItem(STORAGE_KEY, cleanEmail);
       } catch (_) {}
@@ -224,6 +263,53 @@ export function CareerCounsellingQnA() {
       loadQuestions(cleanEmail);
     } finally {
       setIsVerifyingEmail(false);
+    }
+  }
+
+  // Admin Login Handler
+  async function handleAdminLogin(e) {
+    e?.preventDefault();
+    const inputPass = adminPasswordInput.trim();
+    if (!inputPass) {
+      setAdminLoginError("Please enter the admin password.");
+      return;
+    }
+
+    setIsCheckingAdmin(true);
+    setAdminLoginError("");
+
+    try {
+      const resp = await fetch(
+        `/api/career-counselling-qna?email=${encodeURIComponent(email)}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-password": inputPass,
+          },
+        }
+      );
+
+      const data = await resp.json();
+      if (!resp.ok || !data.isAdmin) {
+        setAdminLoginError("Incorrect admin password. Access denied.");
+        setIsCheckingAdmin(false);
+        return;
+      }
+
+      try {
+        sessionStorage.setItem(ADMIN_PASS_KEY, inputPass);
+      } catch (_) {}
+
+      setIsAdmin(true);
+      if (Array.isArray(data.questions)) {
+        setQuestions(data.questions);
+      }
+      setIsAdminModalOpen(false);
+      showToast("Admin View activated: Submitter names and emails are now visible.");
+    } catch (err) {
+      setAdminLoginError("Failed to verify admin password. Please try again.");
+    } finally {
+      setIsCheckingAdmin(false);
     }
   }
 
@@ -288,7 +374,7 @@ export function CareerCounsellingQnA() {
       try {
         const resp = await fetch("/api/career-counselling-qna", {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: buildAuthHeaders(),
           body: JSON.stringify({
             id: editingQuestion.id,
             email,
@@ -323,7 +409,6 @@ export function CareerCounsellingQnA() {
         showToast("Your question was updated successfully!");
       } catch (err) {
         console.warn("Backend update failed, falling back to local state:", err);
-        // Fallback update
         setQuestions((prev) =>
           prev.map((item) =>
             item.id === editingQuestion.id
@@ -349,7 +434,7 @@ export function CareerCounsellingQnA() {
       try {
         const resp = await fetch("/api/career-counselling-qna", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: buildAuthHeaders(),
           body: JSON.stringify({
             action: "create",
             email,
@@ -367,12 +452,11 @@ export function CareerCounsellingQnA() {
           question: cleanText,
           createdAt: data.question?.createdAt || new Date().toISOString(),
           isOwner: true,
+          ...(isAdmin ? { submitterEmail: email, submitterName: "You (Delegate)" } : {}),
         };
 
-        // Prepend new question to state
         setQuestions((prev) => [newQuestion, ...prev]);
 
-        // Save into local fallback
         const local = getLocalFallbackQuestions();
         saveLocalFallbackQuestions([{ ...newQuestion, authorEmail: email }, ...local]);
 
@@ -406,7 +490,7 @@ export function CareerCounsellingQnA() {
     try {
       const resp = await fetch("/api/career-counselling-qna", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: buildAuthHeaders(),
         body: JSON.stringify({
           id: deletingQuestionId,
           email,
@@ -598,7 +682,7 @@ export function CareerCounsellingQnA() {
 
             {/* Filter and Status Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1 border-b border-slate-200">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setFilterMode("all")}
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
@@ -621,11 +705,36 @@ export function CareerCounsellingQnA() {
                 </button>
               </div>
 
-              <div className="flex items-center gap-2 self-end sm:self-auto">
+              <div className="flex items-center gap-2.5 self-end sm:self-auto flex-wrap">
+                {/* Admin Mode Badge or Unlock Button */}
+                {isAdmin ? (
+                  <div
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-extrabold shadow-xs"
+                    title="Authenticated Administrator: Submitter identities are visible"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Admin Mode (Identities Visible)</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdminPasswordInput("");
+                      setAdminLoginError("");
+                      setIsAdminModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-xs"
+                    title="Admin password sign in to reveal submitter details"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Admin View</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => loadQuestions(email)}
                   disabled={isLoadingQuestions}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-xs cursor-pointer"
                   title="Refresh Questions"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoadingQuestions ? "animate-spin text-sky-600" : ""}`} />
@@ -663,61 +772,94 @@ export function CareerCounsellingQnA() {
                 </button>
               </div>
             ) : (
-              /* Questions Grid / List */
+              /* Questions Grid / List with Clear Boundary */
               <div className="space-y-4">
                 {displayedQuestions.map((q) => (
                   <div
                     key={q.id}
-                    className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs hover:shadow-card transition-all"
+                    className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-card transition-all overflow-hidden"
                   >
-                    {/* Top Row: Anonymous tag, time, and Owner actions */}
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center text-xs font-black">
+                    {/* 1. DISTINCT HEADER STRIP (Clear boundary separating metadata from question) */}
+                    <div className="bg-slate-50/90 px-4 sm:px-5 py-3 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                        <div className="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center text-xs font-black shrink-0">
                           ?
                         </div>
                         <span className="text-xs font-bold text-slate-700">
                           Anonymous Delegate
                         </span>
                         {q.isOwner && (
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider">
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider">
                             Your Question
                           </span>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-slate-400" />
-                          <span>{formatTimestamp(q.createdAt)}</span>
-                        </span>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium shrink-0">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{formatTimestamp(q.createdAt)}</span>
                       </div>
                     </div>
 
-                    {/* Question Content */}
-                    <div className="text-slate-800 text-sm sm:text-base font-normal leading-relaxed whitespace-pre-wrap pl-9">
-                      {q.question}
+                    {/* 2. ADMIN DISCLOSED DETAILS (Visible if admin password signed in) */}
+                    {isAdmin && q.submitterEmail && (
+                      <div className="bg-amber-50/95 border-b border-amber-200/90 px-4 sm:px-5 py-2.5 text-xs text-amber-950 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 rounded bg-amber-200/90 text-amber-900 font-black text-[10px] uppercase tracking-wider">
+                            Submitter
+                          </span>
+                          <span className="font-extrabold text-slate-900">
+                            {q.submitterName || "Registered Attendee"}
+                          </span>
+                          <span className="font-mono text-amber-900 bg-white/90 border border-amber-200/80 rounded px-2 py-0.5 text-[11px]">
+                            {q.submitterEmail}
+                          </span>
+                        </div>
+                        {(q.submitterInstitution || q.submitterReg) && (
+                          <span className="text-[11px] text-amber-800 italic">
+                            {q.submitterInstitution} {q.submitterReg ? `(${q.submitterReg})` : ""}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 3. QUESTION BODY (Full width, clear boundary, beautiful on phone screens) */}
+                    <div className="p-4 sm:p-5">
+                      <div className="text-slate-900 text-sm sm:text-base font-normal leading-relaxed whitespace-pre-wrap break-words">
+                        {q.question}
+                      </div>
                     </div>
 
-                    {/* Action Row for the Author */}
-                    {q.isOwner && (
-                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-2 pl-9">
-                        <button
-                          onClick={() => handleOpenEditModal(q)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 transition-colors"
-                          title="Edit your question"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                          <span>Edit</span>
-                        </button>
-                        <button
-                          onClick={() => setDeletingQuestionId(q.id)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors"
-                          title="Delete your question"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Delete</span>
-                        </button>
+                    {/* 4. ACTION BAR (For question author or administrator) */}
+                    {(q.isOwner || isAdmin) && (
+                      <div className="bg-slate-50/50 px-4 sm:px-5 py-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <div className="text-[11px] text-slate-400 font-medium">
+                          {isAdmin && !q.isOwner ? (
+                            <span className="text-amber-700 font-bold text-[11px]">Admin Control</span>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">Manage Question</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {q.isOwner && (
+                            <button
+                              onClick={() => handleOpenEditModal(q)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-200 transition-colors shadow-xs"
+                              title="Edit your question"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Edit</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setDeletingQuestionId(q.id)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition-colors shadow-xs"
+                            title="Delete question"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -825,6 +967,95 @@ export function CareerCounsellingQnA() {
                     </>
                   ) : (
                     <span>Save Question</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          POPUP MODAL: ADMIN PASSWORD SIGN IN (TO REVEAL IDENTITIES)
+          ======================================================== */}
+      {isAdminModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-panel max-w-sm">
+            <div className="modal-header">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Admin Sign In
+                  </h3>
+                  <p className="text-xs text-slate-400">Reveal Submitter Identities</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAdminModalOpen(false)}
+                disabled={isCheckingAdmin}
+                className="btn-icon text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAdminLogin}>
+              <div className="modal-body space-y-4">
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Enter the IMF 2026 Admin Password to disclose the names and email addresses of question submitters.
+                </p>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="admin-password-input">
+                    Admin Password
+                  </label>
+                  <input
+                    id="admin-password-input"
+                    type="password"
+                    value={adminPasswordInput}
+                    onChange={(e) => {
+                      setAdminPasswordInput(e.target.value);
+                      if (adminLoginError) setAdminLoginError("");
+                    }}
+                    placeholder="Enter admin password"
+                    autoFocus
+                    required
+                    className="form-input py-2.5 text-sm"
+                  />
+                </div>
+
+                {adminLoginError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{adminLoginError}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  onClick={() => setIsAdminModalOpen(false)}
+                  disabled={isCheckingAdmin}
+                  className="btn-outline text-xs py-2 px-3 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCheckingAdmin || !adminPasswordInput.trim()}
+                  className="btn-primary text-xs py-2 px-4 font-bold flex items-center gap-2"
+                >
+                  {isCheckingAdmin ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Verifying...</span>
+                    </>
+                  ) : (
+                    <span>Unlock Admin View</span>
                   )}
                 </button>
               </div>
