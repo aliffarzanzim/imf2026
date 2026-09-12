@@ -128,12 +128,28 @@ export function CareerCounsellingQnA() {
     }
   }, [isEmailVerified, email]);
 
-  // Clean up timer on unmount
+  // Sync admin sign-out across tabs or when admin token is removed
   useEffect(() => {
+    function checkAuthSync() {
+      const hasToken = Boolean(getAdminToken() || sessionStorage.getItem(ADMIN_PASS_KEY));
+      if (!hasToken && isAdmin) {
+        setIsAdmin(false);
+        setQuestions((prev) =>
+          prev.map((q) => {
+            const { submitterEmail, submitterName, submitterReg, submitterInstitution, ...rest } = q;
+            return rest;
+          })
+        );
+        loadQuestions(email, null, true);
+      }
+    }
+    window.addEventListener("storage", checkAuthSync);
+    window.addEventListener("focus", checkAuthSync);
     return () => {
-      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      window.removeEventListener("storage", checkAuthSync);
+      window.removeEventListener("focus", checkAuthSync);
     };
-  }, []);
+  }, [isAdmin, email]);
 
   // Helper: Read / write local fallback questions
   function getLocalFallbackQuestions() {
@@ -152,8 +168,9 @@ export function CareerCounsellingQnA() {
   }
 
   // Helper to build request headers with admin auth
-  function buildAuthHeaders() {
+  function buildAuthHeaders(forceNonAdmin = false) {
     const headers = { "Content-Type": "application/json" };
+    if (forceNonAdmin) return headers;
     try {
       const token = getAdminToken();
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -164,12 +181,12 @@ export function CareerCounsellingQnA() {
   }
 
   // Fetch Questions
-  async function loadQuestions(userEmail = email, overridePassword = null) {
+  async function loadQuestions(userEmail = email, overridePassword = null, forceNonAdmin = false) {
     setIsLoadingQuestions(true);
     setFetchError("");
 
-    const headers = buildAuthHeaders();
-    if (overridePassword) {
+    const headers = buildAuthHeaders(forceNonAdmin);
+    if (overridePassword && !forceNonAdmin) {
       headers["x-admin-password"] = overridePassword;
     }
 
@@ -183,10 +200,8 @@ export function CareerCounsellingQnA() {
       }
       const data = await resp.json();
       if (data.success && Array.isArray(data.questions)) {
+        setIsAdmin(Boolean(data.isAdmin));
         setQuestions(data.questions);
-        if (data.isAdmin) {
-          setIsAdmin(true);
-        }
         return;
       }
       throw new Error(data.error || "Failed to load questions");
@@ -313,15 +328,36 @@ export function CareerCounsellingQnA() {
     }
   }
 
+  // Admin Sign Out Handler
+  function handleAdminSignOut() {
+    try {
+      sessionStorage.removeItem(ADMIN_PASS_KEY);
+      localStorage.removeItem("imf_admin_token");
+      sessionStorage.removeItem("imf_admin_token");
+    } catch (_) {}
+    setIsAdmin(false);
+    // Strip submitter names & emails from state immediately
+    setQuestions((prev) =>
+      prev.map((q) => {
+        const { submitterEmail, submitterName, submitterReg, submitterInstitution, ...rest } = q;
+        return rest;
+      })
+    );
+    loadQuestions(email, null, true);
+    showToast("Signed out of Admin Mode. Submitter identities are hidden.");
+  }
+
   // Logout / Switch Email
   function handleSignOut() {
     try {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(LEGACY_STORAGE_KEY);
+      sessionStorage.removeItem(ADMIN_PASS_KEY);
     } catch (_) {}
     setEmail("");
     setEmailInput("");
     setIsEmailVerified(false);
+    setIsAdmin(false);
     setQuestions([]);
     showToast("Signed out. You can sign in with another email anytime.");
   }
@@ -709,11 +745,21 @@ export function CareerCounsellingQnA() {
                 {/* Admin Mode Badge or Unlock Button */}
                 {isAdmin ? (
                   <div
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-extrabold shadow-xs"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-extrabold shadow-xs"
                     title="Authenticated Administrator: Submitter identities are visible"
                   >
-                    <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Admin Mode (Identities Visible)</span>
+                    <div className="flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Admin Mode</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAdminSignOut}
+                      className="px-2 py-0.5 rounded-md bg-amber-200/80 hover:bg-rose-100 hover:text-rose-700 text-amber-950 text-[11px] font-black transition-colors cursor-pointer"
+                      title="Exit Admin Mode and hide submitter identities"
+                    >
+                      Sign Out
+                    </button>
                   </div>
                 ) : (
                   <button
