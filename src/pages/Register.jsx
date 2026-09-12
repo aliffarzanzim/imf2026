@@ -2207,11 +2207,11 @@ export function Register({ initialMode = "register" }) {
                                 )}
                               </div>
 
-                              {/* 17. Upload Scientific Poster (Optional) */}
+                              {/* 17. Upload Poster for this abstract (Optional) */}
                               <div className="form-group pt-4 border-t border-slate-100">
                                 <div className="flex items-center justify-between mb-1">
                                   <label className="form-label mb-0">
-                                    17. Upload Scientific Poster
+                                    17. Upload Poster for this abstract
                                   </label>
                                   <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
                                     Optional
@@ -3478,11 +3478,11 @@ export function Register({ initialMode = "register" }) {
                               )}
                             </div>
 
-                            {/* 17. Upload Scientific Poster (Optional) */}
+                            {/* 17. Upload Poster for this abstract (Optional) */}
                             <div className="form-group pt-4 border-t border-slate-100">
                               <div className="flex items-center justify-between mb-1">
                                 <label className="form-label mb-0">
-                                  17. Upload Scientific Poster
+                                  17. Upload Poster for this abstract
                                 </label>
                                 <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
                                   Optional
