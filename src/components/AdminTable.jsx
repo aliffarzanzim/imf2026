@@ -463,11 +463,11 @@ function DelegateDetailModal({ record, abstracts = [], onClose, onEdit, onToggle
                           className="btn-outline text-xs py-2 px-3 flex items-center gap-1.5 text-sky-700 hover:border-sky-300"
                         >
                           <Icons.Download className="w-3.5 h-3.5" />
-                          <span>Slides: {abs.presentation_file_name}</span>
+                          <span>Poster: {abs.presentation_file_name}</span>
                         </a>
                       ) : (
                         <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 text-xs italic">
-                          Presentation Slides: Not added
+                          Poster: Not added
                         </span>
                       )}
                     </div>

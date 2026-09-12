@@ -2153,13 +2153,6 @@ export function Register({ initialMode = "register" }) {
                                         ✓ Upload completed successfully
                                       </p>
 
-                                      {/* Complete Progress Bar */}
-                                      <div className="w-full max-w-sm mx-auto mt-3">
-                                        <div className="h-2 rounded-full bg-emerald-100 overflow-hidden">
-                                          <div className="h-full bg-emerald-500 w-full rounded-full" />
-                                        </div>
-                                      </div>
-
                                       <div className="flex items-center gap-2 mt-4">
                                         <button
                                           type="button"
@@ -2214,11 +2207,11 @@ export function Register({ initialMode = "register" }) {
                                 )}
                               </div>
 
-                              {/* 17. Upload Scientific Poster / Presentation Slides (Optional) */}
+                              {/* 17. Upload Scientific Poster (Optional) */}
                               <div className="form-group pt-4 border-t border-slate-100">
                                 <div className="flex items-center justify-between mb-1">
                                   <label className="form-label mb-0">
-                                    17. Upload Scientific Poster / Presentation Slides
+                                    17. Upload Scientific Poster
                                   </label>
                                   <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
                                     Optional
@@ -2296,18 +2289,12 @@ export function Register({ initialMode = "register" }) {
                                         <Icons.Check className="w-5 h-5" />
                                       </div>
                                       <p className="text-xs font-bold text-slate-800">
-                                        Attached Poster / Slides: <span className="text-sky-700 font-bold">{abs.presentationFileName}</span>
+                                        Attached Poster: <span className="text-sky-700 font-bold">{abs.presentationFileName}</span>
                                         {abs.presentationFileSize > 0 && ` (${(abs.presentationFileSize / 1024 / 1024).toFixed(2)} MB)`}
                                       </p>
                                       <p className="text-[11px] text-sky-700 font-medium mt-0.5">
                                         ✓ File stored securely
                                       </p>
-
-                                      <div className="w-full max-w-sm mx-auto mt-3">
-                                        <div className="h-2 rounded-full bg-sky-100 overflow-hidden">
-                                          <div className="h-full bg-sky-500 w-full rounded-full" />
-                                        </div>
-                                      </div>
 
                                       <div className="flex items-center gap-2 mt-4">
                                         <button
@@ -2533,7 +2520,7 @@ export function Register({ initialMode = "register" }) {
                               {abs.presentationFileName && (
                                 <div className="text-[11px] text-sky-700 font-medium flex items-center gap-1 pt-0.5">
                                   <Icons.Check className="w-3.5 h-3.5 text-sky-600 flex-shrink-0" />
-                                  <span className="truncate">Poster / Slides: {abs.presentationFileName}</span>
+                                  <span className="truncate">Poster: {abs.presentationFileName}</span>
                                 </div>
                               )}
                             </div>
@@ -3491,11 +3478,11 @@ export function Register({ initialMode = "register" }) {
                               )}
                             </div>
 
-                            {/* 17. Upload Scientific Poster / Presentation Slides (Optional) */}
+                            {/* 17. Upload Scientific Poster (Optional) */}
                             <div className="form-group pt-4 border-t border-slate-100">
                               <div className="flex items-center justify-between mb-1">
                                 <label className="form-label mb-0">
-                                  17. Upload Scientific Poster / Presentation Slides
+                                  17. Upload Scientific Poster
                                 </label>
                                 <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
                                   Optional
@@ -3573,18 +3560,12 @@ export function Register({ initialMode = "register" }) {
                                       <Icons.Check className="w-5 h-5" />
                                     </div>
                                     <p className="text-xs font-bold text-slate-800">
-                                      Attached Poster / Slides: <span className="text-sky-700 font-bold">{abs.presentationFileName}</span>
+                                      Attached Poster: <span className="text-sky-700 font-bold">{abs.presentationFileName}</span>
                                       {abs.presentationFileSize > 0 && ` (${(abs.presentationFileSize / 1024 / 1024).toFixed(2)} MB)`}
                                     </p>
                                     <p className="text-[11px] text-sky-700 font-medium mt-0.5">
                                       ✓ File stored securely
                                     </p>
-
-                                    <div className="w-full max-w-sm mx-auto mt-3">
-                                      <div className="h-2 rounded-full bg-sky-100 overflow-hidden">
-                                        <div className="h-full bg-sky-500 w-full rounded-full" />
-                                      </div>
-                                    </div>
 
                                     <div className="flex items-center gap-2 mt-4">
                                       <button
