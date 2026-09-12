@@ -74,6 +74,12 @@ export class QuizRoom extends DurableObject {
     // Throttle: last time LIVE_ANSWER_COUNT was sent to host (prevents 1000-msg burst)
     this._liveCountLastSent = 0;
 
+    // Final standings are immutable. Keep one in-memory copy while this DO is
+    // awake so ending a 1,000-player quiz does not rebuild the same ranking
+    // once for every connected WebSocket.
+    this.finalLeaderboard = null;
+    this.finalResultsByPlayerId = new Map();
+
     // Initialize Sessions & Active Lobby
     this.sessions = [];
     this.activeSession = null;
@@ -88,6 +94,7 @@ export class QuizRoom extends DurableObject {
         );
       `);
       this.restoreLiveState();
+      this.hydratePersistedAnswersForActiveSession();
     } catch (e) {
       console.error("Failed to init live_state:", e);
     }
@@ -489,10 +496,10 @@ export class QuizRoom extends DurableObject {
     try {
       for (const player of this.players.values()) {
         const answer = player.answers && player.answers[questionIndex];
-        if (!answer) continue;
+        if (!answer || answer.persisted) continue;
 
         this.ctx.storage.sql.exec(
-          `INSERT OR REPLACE INTO session_question_answers
+          `INSERT OR IGNORE INTO session_question_answers
              (session_id, question_idx, player_id, email, reg_number, option_key, is_correct, points, elapsed_ms)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           sessionId,
@@ -505,9 +512,117 @@ export class QuizRoom extends DurableObject {
           answer.points || 0,
           answer.elapsedMs || 0
         );
+        answer.persisted = true;
       }
     } catch (e) {
       console.error("Failed to persist revealed answers:", e);
+    }
+  }
+
+  // A submitted answer is the source of truth. Save the compact answer row
+  // and the live score snapshot before acknowledging it to the browser. This
+  // makes a Worker restart during a question recoverable without waiting for
+  // the reveal screen.
+  persistSubmittedAnswer(sessionId, player, questionIndex) {
+    if (!sessionId || !player || !player.answers?.[questionIndex]) return;
+    const answer = player.answers[questionIndex];
+    const cleanEmail = (player.email || "").trim().toLowerCase();
+
+    this.ctx.storage.sql.exec(
+      `INSERT OR REPLACE INTO session_question_answers
+         (session_id, question_idx, player_id, email, reg_number, option_key, is_correct, points, elapsed_ms)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sessionId,
+      questionIndex,
+      player.id,
+      cleanEmail,
+      player.regNumber || "",
+      answer.optionKey || "",
+      answer.isCorrect ? 1 : 0,
+      answer.points || 0,
+      answer.elapsedMs || 0
+    );
+    answer.persisted = true;
+
+    this.ctx.storage.sql.exec(
+      `INSERT INTO lobby_players
+         (session_id, player_id, name, reg_number, email, score, streak, connected, last_seen, institution, academic_year)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(session_id, player_id) DO UPDATE SET
+         name = excluded.name,
+         reg_number = excluded.reg_number,
+         email = excluded.email,
+         score = excluded.score,
+         streak = excluded.streak,
+         connected = excluded.connected,
+         last_seen = excluded.last_seen,
+         institution = excluded.institution,
+         academic_year = excluded.academic_year`,
+      sessionId,
+      player.id,
+      player.name,
+      player.regNumber || "",
+      cleanEmail,
+      player.score || 0,
+      player.streak || 0,
+      player.connected ? 1 : 0,
+      player.lastSeen || Date.now(),
+      player.institution || player.college || "",
+      player.academicYear || player.year || ""
+    );
+  }
+
+  // Rebuild answer selections after a cold start. The lobby snapshot restores
+  // score/streak and this audit trail restores "already answered" state,
+  // answer distribution, correct count, and best streak.
+  hydratePersistedAnswersForActiveSession() {
+    if (!this.activeSession || !this.players.size) return;
+    try {
+      const rows = [...this.ctx.storage.sql.exec(
+        `SELECT question_idx, player_id, option_key, is_correct, points, elapsed_ms
+           FROM session_question_answers WHERE session_id = ?`,
+        this.activeSession.id
+      )];
+      const byPlayer = new Map();
+      for (const row of rows) {
+        if (!byPlayer.has(row.player_id)) byPlayer.set(row.player_id, []);
+        byPlayer.get(row.player_id).push(row);
+      }
+      for (const player of this.players.values()) {
+        const answers = byPlayer.get(player.id) || [];
+        if (!answers.length) continue;
+        player.answers = player.answers || {};
+        let correctAnswers = 0;
+        let currentStreak = 0;
+        let bestStreak = 0;
+        let previousQuestion = -1;
+        for (const row of answers.sort((a, b) => a.question_idx - b.question_idx)) {
+          const isCorrect = Boolean(row.is_correct);
+          player.answers[row.question_idx] = {
+            optionKey: row.option_key || "",
+            isCorrect,
+            points: row.points || 0,
+            elapsedMs: row.elapsed_ms || 0,
+            streakBonus: 0,
+            persisted: true,
+          };
+          if (previousQuestion !== -1 && row.question_idx !== previousQuestion + 1) currentStreak = 0;
+          if (isCorrect) {
+            correctAnswers++;
+            currentStreak++;
+            bestStreak = Math.max(bestStreak, currentStreak);
+          } else {
+            currentStreak = 0;
+          }
+          previousQuestion = row.question_idx;
+        }
+        player.correctAnswers = Math.max(player.correctAnswers || 0, correctAnswers);
+        player.maxStreak = Math.max(player.maxStreak || 0, bestStreak);
+        player.bestStreak = Math.max(player.bestStreak || 0, bestStreak);
+        player.streak = currentStreak;
+      }
+    } catch (e) {
+      console.error("Failed to restore persisted quiz answers:", e);
     }
   }
 
@@ -1005,12 +1120,10 @@ export class QuizRoom extends DurableObject {
       }
 
       try {
-        const playerList = this.getPlayerList();
-        const pong = { type: "PONG" };
-        if (this.gameState === "LOBBY" && this.activeSession) {
-          pong.players = playerList;
-        }
-        ws.send(JSON.stringify(pong));
+        // A heartbeat is only a connection check. Building the full roster
+        // here made 1,000 clients trigger 100 database/roster scans per
+        // second. Actual JOIN/LEAVE events still broadcast lobby changes.
+        ws.send(JSON.stringify({ type: "PONG" }));
 
         if (rosterChanged && this.gameState === "LOBBY") {
           this.broadcastLobbyStatus();
@@ -1822,8 +1935,10 @@ export class QuizRoom extends DurableObject {
         ws.send(JSON.stringify({ type: "ERROR", message: "Quiz countdown is currently paused by Quiz Master." }));
         return;
       }
-      const pId = msg.playerId || meta.playerId || socketId;
-      const player = this.players.get(pId) || (meta.playerId ? this.players.get(meta.playerId) : null) || this.players.get(socketId);
+      // Never trust a playerId supplied by the browser: a connected player
+      // must only be able to submit an answer for their own WebSocket identity.
+      const pId = meta.playerId || socketId;
+      const player = this.players.get(pId) || this.players.get(socketId);
 
       // SEC: Only allow players who joined via JOIN to submit answers (prevent ghost injection)
       if (!player) return;
@@ -1841,6 +1956,11 @@ export class QuizRoom extends DurableObject {
       const elapsedMs = Math.max(0, Date.now() - this.questionStartTime);
       const q = QUIZ_QUESTIONS[qIdx];
       const isCorrect = msg.optionKey === q.correctAnswer;
+      const previousScore = player.score || 0;
+      const previousStreak = player.streak || 0;
+      const previousMaxStreak = player.maxStreak || 0;
+      const previousBestStreak = player.bestStreak || 0;
+      const previousCorrectAnswers = player.correctAnswers || 0;
 
       // Authentic Kahoot Streak Bonus Scale:
       // 1st correct: standard speed points (no streak yet)
@@ -1880,8 +2000,26 @@ export class QuizRoom extends DurableObject {
         isCorrect,
       };
 
-      // NOTE: score is saved to SQLite in batch at revealAnswer() — not on every submit
-      // This prevents 1000 synchronous DB writes during a simultaneous answer burst.
+      if (isCorrect) {
+        player.correctAnswers = (player.correctAnswers || 0) + 1;
+        player.bestStreak = Math.max(player.bestStreak || 0, player.maxStreak || 0, player.streak || 0);
+      }
+
+      // Persist the answer and score before acknowledging it. Each player
+      // writes one small answer row and one compact lobby snapshot, rather
+      // than a large all-player flush at reveal time.
+      try {
+        if (this.activeSession) this.persistSubmittedAnswer(this.activeSession.id, player, qIdx);
+      } catch (e) {
+        delete player.answers[qIdx];
+        player.score = previousScore;
+        player.streak = previousStreak;
+        player.maxStreak = previousMaxStreak;
+        player.bestStreak = previousBestStreak;
+        player.correctAnswers = previousCorrectAnswers;
+        ws.send(JSON.stringify({ type: "ERROR", message: "Your answer could not be saved. Please select again." }));
+        return;
+      }
 
       ws.send(
         JSON.stringify({
@@ -2053,6 +2191,8 @@ export class QuizRoom extends DurableObject {
   // Game Engine State Transitions
   startQuizCountdown() {
     this.clearAllTimers();
+    this.finalLeaderboard = null;
+    this.finalResultsByPlayerId = new Map();
     this.isPaused = false;
     this.pausedRemainingMs = 0;
     this.savedPendingAction = null;
@@ -2121,14 +2261,14 @@ export class QuizRoom extends DurableObject {
       }
     }
 
-    // Batch flush all player scores to SQLite now (deferred from SUBMIT_ANSWER for performance)
+    // Answers are persisted at submission time. Keep this idempotent fallback
+    // for records made by an older Worker version, but avoid re-saving every
+    // player and re-querying their answer history at every reveal.
     if (this.activeSession) {
-      // This makes correctness recoverable even if the DO hibernates before
-      // endQuiz() writes the final standings.
       this.persistQuestionAnswers(this.activeSession.id, qIdxAtReveal);
       for (const p of this.players.values()) {
-        p.correctAnswers = this.getPersistedCorrectCount(this.activeSession.id, p);
-        this.savePlayerToDb(this.activeSession.id, p);
+        p.correctAnswers = Object.values(p.answers || {}).filter((a) => a && a.isCorrect).length;
+        p.bestStreak = Math.max(p.bestStreak || 0, p.maxStreak || 0, p.streak || 0);
       }
     }
     // Send final LIVE_ANSWER_COUNT to host immediately at reveal
@@ -2414,7 +2554,56 @@ export class QuizRoom extends DurableObject {
     }
   }
 
+  cacheFinalResults(settled) {
+    this.finalLeaderboard = settled;
+    this.finalResultsByPlayerId = new Map();
+    const totalPlayers = settled.length;
+    const champions = settled.slice(0, 10);
+
+    for (let index = 0; index < totalPlayers; index++) {
+      const me = settled[index];
+      const startIndex = Math.max(0, index - 5);
+      const endIndex = Math.min(totalPlayers, index + 6);
+      const bestStreak = me.bestStreak || me.streak || 0;
+      this.finalResultsByPlayerId.set(me.id, {
+        rank: me.rank,
+        totalScore: me.score || 0,
+        streak: bestStreak,
+        bestStreak,
+        maxStreak: bestStreak,
+        correctAnswers: me.correctAnswers || 0,
+        totalQuestions: QUIZ_QUESTIONS.length,
+        champions,
+        top10: champions,
+        podium: champions,
+        above5: settled.slice(startIndex, index),
+        me: { ...me, streak: bestStreak, bestStreak, maxStreak: bestStreak },
+        below5: settled.slice(index + 1, endIndex),
+        surrounding: settled.slice(startIndex, endIndex),
+        totalPlayers,
+      });
+    }
+  }
+
+  getCachedFinalResult(playerId, name, regNumber, email = "") {
+    if (!this.finalLeaderboard?.length) return null;
+    if (playerId && this.finalResultsByPlayerId.has(playerId)) {
+      return this.finalResultsByPlayerId.get(playerId);
+    }
+    const cleanEmail = (email || "").trim().toLowerCase();
+    const cleanReg = (regNumber || "").replace(/[\[\]]/g, "").trim().toUpperCase();
+    const cleanName = (name || "").trim().toLowerCase();
+    const match = this.finalLeaderboard.find((p) =>
+      (cleanEmail && (p.email || "").toLowerCase() === cleanEmail) ||
+      (cleanReg && (p.regNumber || "").replace(/[\[\]]/g, "").trim().toUpperCase() === cleanReg) ||
+      (cleanName && (p.name || "").trim().toLowerCase() === cleanName)
+    );
+    return match ? this.finalResultsByPlayerId.get(match.id) || null : null;
+  }
+
   getParticipantFinalResult(playerId, name, regNumber, email = "") {
+    const cachedResult = this.getCachedFinalResult(playerId, name, regNumber, email);
+    if (cachedResult) return cachedResult;
     const cleanReg = (regNumber || "").replace(/[\[\]]/g, "").trim().toUpperCase();
     const cleanName = (name || "").trim().toLowerCase();
     const cleanEmail = (email || "").trim().toLowerCase();
@@ -2429,12 +2618,7 @@ export class QuizRoom extends DurableObject {
         ];
         if (rows.length > 0) {
           const sorted = rows.map((r) => {
-            const persistedStats = this.getPersistedAnswerStats(this.activeSession.id, {
-              id: r.player_id,
-              email: r.email || "",
-              regNumber: r.reg_number || "",
-            });
-            const bestStreak = Math.max(r.streak || 0, persistedStats.bestStreak);
+            const bestStreak = r.streak || 0;
             return {
               rank: r.final_rank,
               id: r.player_id,
@@ -2449,9 +2633,10 @@ export class QuizRoom extends DurableObject {
               streak: bestStreak,
               bestStreak,
               maxStreak: bestStreak,
-              correctAnswers: Math.max(r.correct_answers || 0, persistedStats.correctAnswers),
+              correctAnswers: r.correct_answers || 0,
             };
           });
+          this.cacheFinalResults(sorted);
 
           const totalPlayers = sorted.length;
           const champions = sorted.slice(0, 10);
@@ -2816,6 +3001,8 @@ export class QuizRoom extends DurableObject {
 
   resetQuiz() {
     this.clearAllTimers();
+    this.finalLeaderboard = null;
+    this.finalResultsByPlayerId = new Map();
     this.isPaused = false;
     this.pausedRemainingMs = 0;
     this.savedPendingAction = null;
@@ -3004,6 +3191,13 @@ export class QuizRoom extends DurableObject {
   }
 
   getLeaderboard() {
+    if (this.finalLeaderboard?.length) {
+      return {
+        top10: this.finalLeaderboard.slice(0, 10),
+        fullLeaderboard: this.finalLeaderboard,
+        totalPlayers: this.finalLeaderboard.length,
+      };
+    }
     // If session is completed or in PODIUM, check SQLite player_scores for permanently settled scores
     if (this.activeSession && (this.gameState === "PODIUM" || this.activeSession.isCompleted)) {
       try {
@@ -3015,12 +3209,7 @@ export class QuizRoom extends DurableObject {
         ];
         if (rows.length > 0) {
           const settled = rows.map((r) => {
-            const persistedStats = this.getPersistedAnswerStats(this.activeSession.id, {
-              id: r.player_id,
-              email: r.email || "",
-              regNumber: r.reg_number || "",
-            });
-            const bestStreak = Math.max(r.streak || 0, persistedStats.bestStreak);
+            const bestStreak = r.streak || 0;
             return {
               id: r.player_id,
               name: r.player_name,
@@ -3036,9 +3225,10 @@ export class QuizRoom extends DurableObject {
               prevRank: r.final_rank,
               streak: bestStreak,
               bestStreak,
-              correctAnswers: Math.max(r.correct_answers || 0, persistedStats.correctAnswers),
+              correctAnswers: r.correct_answers || 0,
             };
           });
+          this.cacheFinalResults(settled);
           return {
             top10: settled.slice(0, 10),
             fullLeaderboard: settled,
