@@ -18,7 +18,6 @@ import {
   UserCheck,
   LogOut,
   Sparkles,
-  KeyRound,
   Eye,
 } from "lucide-react";
 import { Header } from "../components/Header";
@@ -79,18 +78,14 @@ export function CareerCounsellingQnA() {
     }
   });
 
-  // Admin View State
+  // Admin View State (automatically detected if signed in to IMF 2026 Admin)
   const [isAdmin, setIsAdmin] = useState(() => {
     try {
-      return Boolean(getAdminToken() || sessionStorage.getItem(ADMIN_PASS_KEY));
+      return Boolean(getAdminToken());
     } catch (_) {
       return false;
     }
   });
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
-  const [adminPasswordInput, setAdminPasswordInput] = useState("");
-  const [adminLoginError, setAdminLoginError] = useState("");
-  const [isCheckingAdmin, setIsCheckingAdmin] = useState(false);
 
   // Questions State
   const [questions, setQuestions] = useState([]);
@@ -278,53 +273,6 @@ export function CareerCounsellingQnA() {
       loadQuestions(cleanEmail);
     } finally {
       setIsVerifyingEmail(false);
-    }
-  }
-
-  // Admin Login Handler
-  async function handleAdminLogin(e) {
-    e?.preventDefault();
-    const inputPass = adminPasswordInput.trim();
-    if (!inputPass) {
-      setAdminLoginError("Please enter the admin password.");
-      return;
-    }
-
-    setIsCheckingAdmin(true);
-    setAdminLoginError("");
-
-    try {
-      const resp = await fetch(
-        `/api/career-counselling-qna?email=${encodeURIComponent(email)}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "x-admin-password": inputPass,
-          },
-        }
-      );
-
-      const data = await resp.json();
-      if (!resp.ok || !data.isAdmin) {
-        setAdminLoginError("Incorrect admin password. Access denied.");
-        setIsCheckingAdmin(false);
-        return;
-      }
-
-      try {
-        sessionStorage.setItem(ADMIN_PASS_KEY, inputPass);
-      } catch (_) {}
-
-      setIsAdmin(true);
-      if (Array.isArray(data.questions)) {
-        setQuestions(data.questions);
-      }
-      setIsAdminModalOpen(false);
-      showToast("Admin View activated: Submitter names and emails are now visible.");
-    } catch (err) {
-      setAdminLoginError("Failed to verify admin password. Please try again.");
-    } finally {
-      setIsCheckingAdmin(false);
     }
   }
 
@@ -742,8 +690,8 @@ export function CareerCounsellingQnA() {
               </div>
 
               <div className="flex items-center gap-2.5 self-end sm:self-auto flex-wrap">
-                {/* Admin Mode Badge or Unlock Button */}
-                {isAdmin ? (
+                {/* Admin Mode Badge (only visible if admin is authenticated via /admin portal) */}
+                {isAdmin && (
                   <div
                     className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-extrabold shadow-xs"
                     title="Authenticated Administrator: Submitter identities are visible"
@@ -761,20 +709,6 @@ export function CareerCounsellingQnA() {
                       Sign Out
                     </button>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAdminPasswordInput("");
-                      setAdminLoginError("");
-                      setIsAdminModalOpen(true);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-xs"
-                    title="Admin password sign in to reveal submitter details"
-                  >
-                    <KeyRound className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Admin View</span>
-                  </button>
                 )}
 
                 <button
@@ -1021,94 +955,7 @@ export function CareerCounsellingQnA() {
         </div>
       )}
 
-      {/* ========================================================
-          POPUP MODAL: ADMIN PASSWORD SIGN IN (TO REVEAL IDENTITIES)
-          ======================================================== */}
-      {isAdminModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-panel max-w-sm">
-            <div className="modal-header">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                  <KeyRound className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-extrabold text-slate-900">
-                    Admin Sign In
-                  </h3>
-                  <p className="text-xs text-slate-400">Reveal Submitter Identities</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsAdminModalOpen(false)}
-                disabled={isCheckingAdmin}
-                className="btn-icon text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <form onSubmit={handleAdminLogin}>
-              <div className="modal-body space-y-4">
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Enter the IMF 2026 Admin Password to disclose the names and email addresses of question submitters.
-                </p>
-
-                <div className="form-group">
-                  <label className="form-label" htmlFor="admin-password-input">
-                    Admin Password
-                  </label>
-                  <input
-                    id="admin-password-input"
-                    type="password"
-                    value={adminPasswordInput}
-                    onChange={(e) => {
-                      setAdminPasswordInput(e.target.value);
-                      if (adminLoginError) setAdminLoginError("");
-                    }}
-                    placeholder="Enter admin password"
-                    autoFocus
-                    required
-                    className="form-input py-2.5 text-sm"
-                  />
-                </div>
-
-                {adminLoginError && (
-                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>{adminLoginError}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  onClick={() => setIsAdminModalOpen(false)}
-                  disabled={isCheckingAdmin}
-                  className="btn-outline text-xs py-2 px-3 font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isCheckingAdmin || !adminPasswordInput.trim()}
-                  className="btn-primary text-xs py-2 px-4 font-bold flex items-center gap-2"
-                >
-                  {isCheckingAdmin ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Verifying...</span>
-                    </>
-                  ) : (
-                    <span>Unlock Admin View</span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* ========================================================
           CONFIRM DELETE MODAL
