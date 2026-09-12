@@ -75,6 +75,13 @@ function createEmptyAbstract(defaultPresenter = "") {
     uploadProgress: 0,
     isUploading: false,
     uploadError: "",
+    // Scientific Poster / Presentation Slides
+    presentationFileName: "",
+    presentationFileSize: 0,
+    presentationFileKey: "",
+    presentationUploadProgress: 0,
+    isPresentationUploading: false,
+    presentationUploadError: "",
   };
 }
 
@@ -256,6 +263,13 @@ export function Register({ initialMode = "register" }) {
           uploadProgress: 0,
           isUploading: false,
           uploadError: "",
+          // Scientific Poster / Presentation Slides
+          presentationFileName: abs.presentationFileName || "",
+          presentationFileSize: abs.presentationFileSize || 0,
+          presentationFileKey: abs.presentationFileKey || "",
+          presentationUploadProgress: 0,
+          isPresentationUploading: false,
+          presentationUploadError: "",
         }))
       );
     }
@@ -298,6 +312,8 @@ export function Register({ initialMode = "register" }) {
         supervisorName: (abs.supervisorName || "").trim(),
         fileName: abs.fileName || "",
         r2FileKey: abs.r2FileKey || "",
+        presentationFileName: abs.presentationFileName || "",
+        presentationFileKey: abs.presentationFileKey || "",
       })),
     });
   }, [manageData]);
@@ -332,6 +348,8 @@ export function Register({ initialMode = "register" }) {
         supervisorName: (abs.supervisorName || "").trim(),
         fileName: abs.fileName || "",
         r2FileKey: abs.r2FileKey || "",
+        presentationFileName: abs.presentationFileName || "",
+        presentationFileKey: abs.presentationFileKey || "",
       })),
     });
 
@@ -492,6 +510,95 @@ export function Register({ initialMode = "register" }) {
     if (el) el.value = "";
   }
 
+  // Instant upload directly upon poster / presentation file selection
+  async function handlePosterFileInstantUpload(index, file) {
+    if (!file) return;
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (!["pdf", "pptx", "ppt", "png", "jpg", "jpeg"].includes(ext)) {
+      updateAbstract(index, "presentationUploadError", `Unsupported format (.${ext}). Poster/presentation must be PDF, PowerPoint (.pptx / .ppt), or Image (.png / .jpg).`);
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      updateAbstract(index, "presentationUploadError", `File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is 50 MB.`);
+      return;
+    }
+
+    setAbstracts((prev) =>
+      prev.map((item, i) =>
+        i === index
+          ? {
+              ...item,
+              presentationFileName: file.name,
+              presentationFileSize: file.size,
+              presentationFileKey: "",
+              isPresentationUploading: true,
+              presentationUploadProgress: 5,
+              presentationUploadError: "",
+            }
+          : item
+      )
+    );
+
+    try {
+      const { uploadUrl, fileKey } = await getUploadUrl(file.name, file.type);
+      await uploadFileToR2(uploadUrl, file, (pct) => {
+        setAbstracts((prev) =>
+          prev.map((item, i) =>
+            i === index ? { ...item, presentationUploadProgress: Math.max(5, pct) } : item
+          )
+        );
+      });
+
+      setAbstracts((prev) =>
+        prev.map((item, i) =>
+          i === index
+            ? {
+                ...item,
+                presentationFileKey: fileKey,
+                isPresentationUploading: false,
+                presentationUploadProgress: 100,
+                presentationUploadError: "",
+              }
+            : item
+        )
+      );
+    } catch (err) {
+      setAbstracts((prev) =>
+        prev.map((item, i) =>
+          i === index
+            ? {
+                ...item,
+                presentationFileKey: "",
+                isPresentationUploading: false,
+                presentationUploadProgress: 0,
+                presentationUploadError: err.message || "Upload failed. Please try again.",
+              }
+            : item
+        )
+      );
+    }
+  }
+
+  function handleRemovePosterFile(index) {
+    setAbstracts((prev) =>
+      prev.map((item, i) =>
+        i === index
+          ? {
+              ...item,
+              presentationFileName: "",
+              presentationFileSize: 0,
+              presentationFileKey: "",
+              isPresentationUploading: false,
+              presentationUploadProgress: 0,
+              presentationUploadError: "",
+            }
+          : item
+      )
+    );
+    const el = document.getElementById(`posterFileInput-${index}`);
+    if (el) el.value = "";
+  }
+
   function toggleActivity(label) {
     setForm((f) => ({
       ...f,
@@ -572,6 +679,8 @@ export function Register({ initialMode = "register" }) {
             return `Name of Presenter is required${num}.`;
           if (abs.isUploading)
             return `Please wait for the abstract file upload to finish${num}.`;
+          if (abs.isPresentationUploading)
+            return `Please wait for the poster / presentation upload to finish${num}.`;
           if (!abs.r2FileKey || !abs.fileName)
             return `Please upload your abstract file (PDF or DOCX)${num}.`;
         }
@@ -628,9 +737,9 @@ export function Register({ initialMode = "register" }) {
             r2FileKey: abs.r2FileKey,
             fileName: abs.fileName,
             fileSize: abs.fileSize,
-            presentationFileKey: null,
-            presentationFileName: null,
-            presentationFileSize: 0,
+            presentationFileKey: abs.presentationFileKey || null,
+            presentationFileName: abs.presentationFileName || null,
+            presentationFileSize: abs.presentationFileSize || 0,
           }))
         : [];
 
@@ -931,6 +1040,95 @@ export function Register({ initialMode = "register" }) {
     if (el) el.value = "";
   }
 
+  // Instant upload directly upon poster / presentation file selection in manage portal
+  async function handleManagePosterFileInstantUpload(index, file) {
+    if (!file) return;
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (!["pdf", "pptx", "ppt", "png", "jpg", "jpeg"].includes(ext)) {
+      updateManageAbstract(index, "presentationUploadError", `Unsupported format (.${ext}). Poster/presentation must be PDF, PowerPoint (.pptx / .ppt), or Image (.png / .jpg).`);
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      updateManageAbstract(index, "presentationUploadError", `File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is 50 MB.`);
+      return;
+    }
+
+    setManageAbstracts((prev) =>
+      prev.map((item, i) =>
+        i === index
+          ? {
+              ...item,
+              presentationFileName: file.name,
+              presentationFileSize: file.size,
+              presentationFileKey: "",
+              isPresentationUploading: true,
+              presentationUploadProgress: 5,
+              presentationUploadError: "",
+            }
+          : item
+      )
+    );
+
+    try {
+      const { uploadUrl, fileKey } = await getUploadUrl(file.name, file.type);
+      await uploadFileToR2(uploadUrl, file, (pct) => {
+        setManageAbstracts((prev) =>
+          prev.map((item, i) =>
+            i === index ? { ...item, presentationUploadProgress: Math.max(5, pct) } : item
+          )
+        );
+      });
+
+      setManageAbstracts((prev) =>
+        prev.map((item, i) =>
+          i === index
+            ? {
+                ...item,
+                presentationFileKey: fileKey,
+                isPresentationUploading: false,
+                presentationUploadProgress: 100,
+                presentationUploadError: "",
+              }
+            : item
+        )
+      );
+    } catch (err) {
+      setManageAbstracts((prev) =>
+        prev.map((item, i) =>
+          i === index
+            ? {
+                ...item,
+                presentationFileKey: "",
+                isPresentationUploading: false,
+                presentationUploadProgress: 0,
+                presentationUploadError: err.message || "Upload failed. Please try again.",
+              }
+            : item
+        )
+      );
+    }
+  }
+
+  function handleRemoveManagePosterFile(index) {
+    setManageAbstracts((prev) =>
+      prev.map((item, i) =>
+        i === index
+          ? {
+              ...item,
+              presentationFileName: "",
+              presentationFileSize: 0,
+              presentationFileKey: "",
+              isPresentationUploading: false,
+              presentationUploadProgress: 0,
+              presentationUploadError: "",
+            }
+          : item
+      )
+    );
+    const el = document.getElementById(`managePosterFileInput-${index}`);
+    if (el) el.value = "";
+  }
+
   // ── Unified Single Save for Manage Portal ─────────────────────
   async function handleSaveAllManage(e) {
     e?.preventDefault();
@@ -962,12 +1160,17 @@ export function Register({ initialMode = "register" }) {
       window.scrollTo({ top: 200, behavior: "smooth" });
       return;
     }
-    if (manageReg.activities.length === 0) {
+    if (!manageReg.email.trim() || !manageReg.email.includes("@")) {
+      setLookupError("A valid email address is required.");
+      window.scrollTo({ top: 200, behavior: "smooth" });
+      return;
+    }
+    if (!manageReg.activities || manageReg.activities.length === 0) {
       setLookupError("Please select at least one activity to attend.");
       window.scrollTo({ top: 350, behavior: "smooth" });
       return;
     }
-    if (manageReg.competitionCategory.length === 0) {
+    if (!manageReg.competitionCategory || manageReg.competitionCategory.length === 0) {
       setLookupError("Please select at least one competition preference.");
       window.scrollTo({ top: 350, behavior: "smooth" });
       return;
@@ -1001,6 +1204,10 @@ export function Register({ initialMode = "register" }) {
         setLookupError(`Please wait for file upload to finish${num}.`);
         return;
       }
+      if (abs.isPresentationUploading) {
+        setLookupError(`Please wait for poster / presentation upload to finish${num}.`);
+        return;
+      }
       if (!abs.r2FileKey && !abs.fileName) {
         setLookupError(`Please upload your abstract file (PDF or DOCX)${num}.`);
         window.scrollTo({ top: 500, behavior: "smooth" });
@@ -1028,6 +1235,9 @@ export function Register({ initialMode = "register" }) {
         r2FileKey: abs.r2FileKey,
         fileName: abs.fileName,
         fileSize: abs.fileSize,
+        presentationFileKey: abs.presentationFileKey || "",
+        presentationFileName: abs.presentationFileName || "",
+        presentationFileSize: abs.presentationFileSize || 0,
       }));
 
       const primaryAbstract = processedAbstracts[0] ? {
@@ -1045,6 +1255,8 @@ export function Register({ initialMode = "register" }) {
         r2FileKey: processedAbstracts[0].r2FileKey,
         fileName: processedAbstracts[0].fileName,
         fileSize: processedAbstracts[0].fileSize,
+        presentationFileKey: processedAbstracts[0].presentationFileKey,
+        presentationFileName: processedAbstracts[0].presentationFileName,
       } : null;
 
       const res = await updateRegistrationData({
@@ -2002,21 +2214,154 @@ export function Register({ initialMode = "register" }) {
                                 )}
                               </div>
 
-                              {/* 17. Upload Presentation/Poster — Commented out as requested */}
-                              {/*
-                              <div className="form-group">
-                                <label className="form-label mb-0">
-                                  17. Upload Presentation/Poster <span className="text-slate-400 font-normal text-xs ml-1">(If required)</span>
-                                </label>
-                                <div className="text-[11px] text-slate-500 mt-1 mb-2">
-                                  If required &bull; Accepted format: PDF / PPTX / DOCX / Image
+                              {/* 17. Upload Scientific Poster / Presentation Slides (Optional) */}
+                              <div className="form-group pt-4 border-t border-slate-100">
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="form-label mb-0">
+                                    17. Upload Scientific Poster / Presentation Slides
+                                  </label>
+                                  <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
+                                    Optional
+                                  </span>
                                 </div>
-                                <div className="border-2 border-dashed border-slate-300 rounded-2xl p-5 text-center bg-slate-50/50">
-                                  <Icons.FileUp className="w-7 h-7 text-sky-600 mx-auto mb-2" />
-                                  <p className="text-xs font-semibold text-slate-700">Presentation / Poster upload</p>
+                                <div className="text-[11px] text-slate-500 -mt-0.5 mb-2">
+                                  Accepted formats: <strong>PDF / PPTX / PPT / PNG / JPG</strong> &bull; Maximum file size: <strong>50 MB</strong>
                                 </div>
+
+                                <input
+                                  type="file"
+                                  id={`posterFileInput-${idx}`}
+                                  accept=".pdf,.pptx,.ppt,.png,.jpg,.jpeg"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handlePosterFileInstantUpload(idx, file);
+                                  }}
+                                />
+
+                                {abs.presentationUploadError && (
+                                  <div className="mb-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                      <Icons.Alert className="w-4 h-4 flex-shrink-0 text-rose-500" />
+                                      <span>{abs.presentationUploadError}</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateAbstract(idx, "presentationUploadError", "")}
+                                      className="text-rose-600 hover:text-rose-800 p-0.5 cursor-pointer"
+                                    >
+                                      <Icons.Close className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                )}
+
+                                {abs.isPresentationUploading ? (
+                                  /* In-progress Instant Upload State */
+                                  <div className="border-2 border-dashed border-sky-400 rounded-2xl p-6 bg-sky-50/50 text-center animate-fade-in">
+                                    <Icons.Spinner className="w-8 h-8 text-sky-600 mx-auto mb-2 animate-spin" />
+                                    <p className="text-xs font-bold text-slate-800 mb-1">
+                                      Uploading: {abs.presentationFileName} ({(abs.presentationFileSize / 1024 / 1024).toFixed(2)} MB)
+                                    </p>
+                                    <p className="text-[11px] text-sky-700 font-medium mb-3">
+                                      Uploading poster directly to secure storage…
+                                    </p>
+
+                                    <div className="w-full max-w-sm mx-auto">
+                                      <div className="flex justify-between text-xs text-slate-600 mb-1.5 font-semibold">
+                                        <span>Progress</span>
+                                        <span className="text-sky-700 font-bold">{abs.presentationUploadProgress}%</span>
+                                      </div>
+                                      <div className="h-2.5 rounded-full bg-slate-200 overflow-hidden shadow-inner">
+                                        <div
+                                          className="h-full bg-sky-600 transition-all duration-200 ease-out rounded-full"
+                                          style={{ width: `${abs.presentationUploadProgress}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : abs.presentationFileKey ? (
+                                  /* Completed Upload State */
+                                  <div className="relative border-2 border-sky-300 rounded-2xl p-6 bg-sky-50/40 animate-fade-in">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemovePosterFile(idx)}
+                                      className="absolute top-3.5 right-3.5 p-1.5 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-300 hover:bg-rose-50 shadow-xs transition-all cursor-pointer"
+                                      title="Remove poster file"
+                                    >
+                                      <Icons.Close className="w-4 h-4" />
+                                    </button>
+
+                                    <div className="flex flex-col items-center text-center">
+                                      <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center mb-2 shadow-xs">
+                                        <Icons.Check className="w-5 h-5" />
+                                      </div>
+                                      <p className="text-xs font-bold text-slate-800">
+                                        Attached Poster / Slides: <span className="text-sky-700 font-bold">{abs.presentationFileName}</span>
+                                        {abs.presentationFileSize > 0 && ` (${(abs.presentationFileSize / 1024 / 1024).toFixed(2)} MB)`}
+                                      </p>
+                                      <p className="text-[11px] text-sky-700 font-medium mt-0.5">
+                                        ✓ File stored securely
+                                      </p>
+
+                                      <div className="w-full max-w-sm mx-auto mt-3">
+                                        <div className="h-2 rounded-full bg-sky-100 overflow-hidden">
+                                          <div className="h-full bg-sky-500 w-full rounded-full" />
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-2 mt-4">
+                                        <button
+                                          type="button"
+                                          onClick={() => document.getElementById(`posterFileInput-${idx}`)?.click()}
+                                          className="btn-outline text-xs py-1.5 px-4 cursor-pointer"
+                                        >
+                                          Replace Poster File
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemovePosterFile(idx)}
+                                          className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-1 py-1.5 px-3 cursor-pointer"
+                                        >
+                                          <Icons.Close className="w-3.5 h-3.5" />
+                                          <span>Remove</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  /* Empty Dropzone */
+                                  <div
+                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                    onDrop={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      const file = e.dataTransfer.files?.[0];
+                                      if (file) handlePosterFileInstantUpload(idx, file);
+                                    }}
+                                    onClick={() => document.getElementById(`posterFileInput-${idx}`)?.click()}
+                                    className="border-2 border-dashed border-slate-300 hover:border-sky-400 rounded-2xl p-6 text-center bg-slate-50/50 hover:bg-sky-50/20 transition-all cursor-pointer"
+                                  >
+                                    <Icons.FileUp className="w-7 h-7 text-sky-600 mx-auto mb-2" />
+                                    <p className="text-xs font-semibold text-slate-700">
+                                      Click to browse or drag &amp; drop your poster / presentation
+                                    </p>
+                                    <p className="text-[11px] text-slate-400 mt-0.5">
+                                      PDF (.pdf), PowerPoint (.pptx, .ppt), or Image (.png, .jpg) up to 50 MB
+                                    </p>
+
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        document.getElementById(`posterFileInput-${idx}`)?.click();
+                                      }}
+                                      className="mt-3 btn-outline text-xs py-1.5 px-4 cursor-pointer"
+                                    >
+                                      Browse Poster File
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                              */}
                             </div>
                           </div>
 
@@ -2185,6 +2530,12 @@ export function Register({ initialMode = "register" }) {
                                 <Icons.Check className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />
                                 <span className="truncate">File: {abs.fileName || "Uploaded"}</span>
                               </div>
+                              {abs.presentationFileName && (
+                                <div className="text-[11px] text-sky-700 font-medium flex items-center gap-1 pt-0.5">
+                                  <Icons.Check className="w-3.5 h-3.5 text-sky-600 flex-shrink-0" />
+                                  <span className="truncate">Poster / Slides: {abs.presentationFileName}</span>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -3135,6 +3486,155 @@ export function Register({ initialMode = "register" }) {
                                     className="mt-3 btn-outline text-xs py-1.5 px-4 cursor-pointer"
                                   >
                                     Browse Abstract File
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* 17. Upload Scientific Poster / Presentation Slides (Optional) */}
+                            <div className="form-group pt-4 border-t border-slate-100">
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="form-label mb-0">
+                                  17. Upload Scientific Poster / Presentation Slides
+                                </label>
+                                <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
+                                  Optional
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 -mt-0.5 mb-2">
+                                Accepted formats: <strong>PDF / PPTX / PPT / PNG / JPG</strong> &bull; Maximum file size: <strong>50 MB</strong>
+                              </div>
+
+                              <input
+                                type="file"
+                                id={`managePosterFileInput-${idx}`}
+                                accept=".pdf,.pptx,.ppt,.png,.jpg,.jpeg"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleManagePosterFileInstantUpload(idx, file);
+                                }}
+                              />
+
+                              {abs.presentationUploadError && (
+                                <div className="mb-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <Icons.Alert className="w-4 h-4 flex-shrink-0 text-rose-500" />
+                                    <span>{abs.presentationUploadError}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateManageAbstract(idx, "presentationUploadError", "")}
+                                    className="text-rose-600 hover:text-rose-800 p-0.5 cursor-pointer"
+                                  >
+                                    <Icons.Close className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+
+                              {abs.isPresentationUploading ? (
+                                /* In-progress Instant Upload State */
+                                <div className="border-2 border-dashed border-sky-400 rounded-2xl p-6 bg-sky-50/50 text-center animate-fade-in">
+                                  <Icons.Spinner className="w-8 h-8 text-sky-600 mx-auto mb-2 animate-spin" />
+                                  <p className="text-xs font-bold text-slate-800 mb-1">
+                                    Uploading: {abs.presentationFileName} ({(abs.presentationFileSize / 1024 / 1024).toFixed(2)} MB)
+                                  </p>
+                                  <p className="text-[11px] text-sky-700 font-medium mb-3">
+                                    Uploading poster directly to secure storage…
+                                  </p>
+
+                                  <div className="w-full max-w-sm mx-auto">
+                                    <div className="flex justify-between text-xs text-slate-600 mb-1.5 font-semibold">
+                                      <span>Progress</span>
+                                      <span className="text-sky-700 font-bold">{abs.presentationUploadProgress}%</span>
+                                    </div>
+                                    <div className="h-2.5 rounded-full bg-slate-200 overflow-hidden shadow-inner">
+                                      <div
+                                        className="h-full bg-sky-600 transition-all duration-200 ease-out rounded-full"
+                                        style={{ width: `${abs.presentationUploadProgress}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : abs.presentationFileKey || abs.presentationFileName ? (
+                                /* Completed Upload State */
+                                <div className="relative border-2 border-sky-300 rounded-2xl p-6 bg-sky-50/40 animate-fade-in">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveManagePosterFile(idx)}
+                                    className="absolute top-3.5 right-3.5 p-1.5 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-300 hover:bg-rose-50 shadow-xs transition-all cursor-pointer"
+                                    title="Remove poster file"
+                                  >
+                                    <Icons.Close className="w-4 h-4" />
+                                  </button>
+
+                                  <div className="flex flex-col items-center text-center">
+                                    <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center mb-2 shadow-xs">
+                                      <Icons.Check className="w-5 h-5" />
+                                    </div>
+                                    <p className="text-xs font-bold text-slate-800">
+                                      Attached Poster / Slides: <span className="text-sky-700 font-bold">{abs.presentationFileName}</span>
+                                      {abs.presentationFileSize > 0 && ` (${(abs.presentationFileSize / 1024 / 1024).toFixed(2)} MB)`}
+                                    </p>
+                                    <p className="text-[11px] text-sky-700 font-medium mt-0.5">
+                                      ✓ File stored securely
+                                    </p>
+
+                                    <div className="w-full max-w-sm mx-auto mt-3">
+                                      <div className="h-2 rounded-full bg-sky-100 overflow-hidden">
+                                        <div className="h-full bg-sky-500 w-full rounded-full" />
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 mt-4">
+                                      <button
+                                        type="button"
+                                        onClick={() => document.getElementById(`managePosterFileInput-${idx}`)?.click()}
+                                        className="btn-outline text-xs py-1.5 px-4 cursor-pointer"
+                                      >
+                                        Replace Poster File
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveManagePosterFile(idx)}
+                                        className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-1 py-1.5 px-3 cursor-pointer"
+                                      >
+                                        <Icons.Close className="w-3.5 h-3.5" />
+                                        <span>Remove</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                /* Empty Dropzone */
+                                <div
+                                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const file = e.dataTransfer.files?.[0];
+                                    if (file) handleManagePosterFileInstantUpload(idx, file);
+                                  }}
+                                  onClick={() => document.getElementById(`managePosterFileInput-${idx}`)?.click()}
+                                  className="border-2 border-dashed border-slate-300 hover:border-sky-400 rounded-2xl p-6 text-center bg-slate-50/50 hover:bg-sky-50/20 transition-all cursor-pointer"
+                                >
+                                  <Icons.FileUp className="w-7 h-7 text-sky-600 mx-auto mb-2" />
+                                  <p className="text-xs font-semibold text-slate-700">
+                                    Click to browse or drag &amp; drop your poster / presentation
+                                  </p>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                    PDF (.pdf), PowerPoint (.pptx, .ppt), or Image (.png, .jpg) up to 50 MB
+                                  </p>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      document.getElementById(`managePosterFileInput-${idx}`)?.click();
+                                    }}
+                                    className="mt-3 btn-outline text-xs py-1.5 px-4 cursor-pointer"
+                                  >
+                                    Browse Poster File
                                   </button>
                                 </div>
                               )}

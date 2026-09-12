@@ -376,6 +376,16 @@ export async function onRequestPost(context) {
             absDetails.push(`Uploaded Document: "${oldFile || "None"}" → "${newFileClean}"`);
           }
 
+          const oldPresFile = (existingAbs.presentation_file_name || "").trim();
+          const newPresFileClean = item.presentationFileName !== undefined ? (item.presentationFileName || "").trim() : oldPresFile;
+          const oldPresKey = (existingAbs.presentation_file_key || "").trim();
+          const newPresKeyClean = item.presentationFileKey !== undefined ? (item.presentationFileKey || "").trim() : oldPresKey;
+          if (newPresKeyClean && newPresKeyClean !== oldPresKey) {
+            absDetails.push(`Uploaded Poster / Presentation: "${oldPresFile || "None"}" → "${newPresFileClean}"`);
+          } else if (!newPresKeyClean && oldPresKey && item.presentationFileKey === "") {
+            absDetails.push(`Removed Poster / Presentation: "${oldPresFile}"`);
+          }
+
           if (absDetails.length > 0) {
             changes.push({
               label: `Updated Abstract [${currentAbsNum || "Draft"}]`,
@@ -403,7 +413,9 @@ export async function onRequestPost(context) {
                 supervisor_name = ?,
                 r2_file_key = ?,
                 file_name = ?,
-                file_size = ?
+                file_size = ?,
+                presentation_file_key = ?,
+                presentation_file_name = ?
             WHERE id = ?
           `).bind(
             reg.reg_number,
@@ -425,6 +437,8 @@ export async function onRequestPost(context) {
             newFileKey,
             newFileName,
             newFileSize,
+            newPresKeyClean || null,
+            newPresFileClean || null,
             existingAbs.id
           ).run();
         } else {
@@ -456,6 +470,7 @@ export async function onRequestPost(context) {
               `Presentation Category: ${(item.presentationCategory && item.presentationCategory.trim()) || "Academic Topic Presentation"}`,
               `Presenter: ${(item.presenterName && item.presenterName.trim()) || updatedFullName}`,
               item.fileName ? `Uploaded Document: ${item.fileName.trim()}` : null,
+              item.presentationFileName ? `Uploaded Poster: ${item.presentationFileName.trim()}` : null,
             ].filter(Boolean),
           });
 
@@ -464,8 +479,9 @@ export async function onRequestPost(context) {
               abstract_number, reg_number, full_name, institution, batch, academic_year,
               phone, email, title, submission_type, presentation_category,
               abstract_body, keywords, presenter_name, co_authors,
-              author_affiliation, supervisor_name, r2_file_key, file_name, file_size
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              author_affiliation, supervisor_name, r2_file_key, file_name, file_size,
+              presentation_file_key, presentation_file_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).bind(
             newAbsNum,
             reg.reg_number,
@@ -486,7 +502,9 @@ export async function onRequestPost(context) {
             item.supervisorName ? String(item.supervisorName).trim() : null,
             item.r2FileKey ? item.r2FileKey.trim() : "pending",
             item.fileName ? item.fileName.trim() : "abstract.pdf",
-            Number(item.fileSize) || 0
+            Number(item.fileSize) || 0,
+            item.presentationFileKey ? String(item.presentationFileKey).trim() : null,
+            item.presentationFileName ? String(item.presentationFileName).trim() : null
           ).run();
         }
       }
