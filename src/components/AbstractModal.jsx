@@ -417,8 +417,8 @@ export function AbstractModal({ onClose }) {
                 <FileDropZone
                   id="abs-pres-upload"
                   label="Click or drag & drop your presentation file"
-                  hint="PPT, PPTX, PDF, or image · Optional"
-                  accept=".ppt,.pptx,.pdf,.png,.jpg,.jpeg"
+                  hint="PPT, PPTX, PDF · Optional"
+                  accept=".ppt,.pptx,.pdf"
                   file={presentationFile}
                   onFile={setPresentationFile}
                 />

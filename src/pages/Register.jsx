@@ -514,8 +514,8 @@ export function Register({ initialMode = "register" }) {
   async function handlePosterFileInstantUpload(index, file) {
     if (!file) return;
     const ext = (file.name.split(".").pop() || "").toLowerCase();
-    if (!["pdf", "pptx", "ppt", "png", "jpg", "jpeg"].includes(ext)) {
-      updateAbstract(index, "presentationUploadError", `Unsupported format (.${ext}). Poster/presentation must be PDF, PowerPoint (.pptx / .ppt), or Image (.png / .jpg).`);
+    if (!["pdf", "pptx", "ppt"].includes(ext)) {
+      updateAbstract(index, "presentationUploadError", `Unsupported format (.${ext}). Poster / presentation must be PDF (.pdf) or PowerPoint (.pptx).`);
       return;
     }
     if (file.size > 50 * 1024 * 1024) {
@@ -1044,8 +1044,8 @@ export function Register({ initialMode = "register" }) {
   async function handleManagePosterFileInstantUpload(index, file) {
     if (!file) return;
     const ext = (file.name.split(".").pop() || "").toLowerCase();
-    if (!["pdf", "pptx", "ppt", "png", "jpg", "jpeg"].includes(ext)) {
-      updateManageAbstract(index, "presentationUploadError", `Unsupported format (.${ext}). Poster/presentation must be PDF, PowerPoint (.pptx / .ppt), or Image (.png / .jpg).`);
+    if (!["pdf", "pptx", "ppt"].includes(ext)) {
+      updateManageAbstract(index, "presentationUploadError", `Unsupported format (.${ext}). Poster / presentation must be PDF (.pdf) or PowerPoint (.pptx).`);
       return;
     }
     if (file.size > 50 * 1024 * 1024) {
@@ -2225,13 +2225,13 @@ export function Register({ initialMode = "register" }) {
                                   </span>
                                 </div>
                                 <div className="text-[11px] text-slate-500 -mt-0.5 mb-2">
-                                  Accepted formats: <strong>PDF / PPTX / PPT / PNG / JPG</strong> &bull; Maximum file size: <strong>50 MB</strong>
+                                  Accepted formats: <strong>PDF (.pdf) / PowerPoint (.pptx)</strong> &bull; Maximum file size: <strong>50 MB</strong>
                                 </div>
 
                                 <input
                                   type="file"
                                   id={`posterFileInput-${idx}`}
-                                  accept=".pdf,.pptx,.ppt,.png,.jpg,.jpeg"
+                                  accept=".pdf,.pptx,.ppt"
                                   className="hidden"
                                   onChange={(e) => {
                                     const file = e.target.files?.[0];
@@ -3502,13 +3502,13 @@ export function Register({ initialMode = "register" }) {
                                 </span>
                               </div>
                               <div className="text-[11px] text-slate-500 -mt-0.5 mb-2">
-                                Accepted formats: <strong>PDF / PPTX / PPT / PNG / JPG</strong> &bull; Maximum file size: <strong>50 MB</strong>
+                                Accepted formats: <strong>PDF (.pdf) / PowerPoint (.pptx)</strong> &bull; Maximum file size: <strong>50 MB</strong>
                               </div>
 
                               <input
                                 type="file"
                                 id={`managePosterFileInput-${idx}`}
-                                accept=".pdf,.pptx,.ppt,.png,.jpg,.jpeg"
+                                accept=".pdf,.pptx,.ppt"
                                 className="hidden"
                                 onChange={(e) => {
                                   const file = e.target.files?.[0];
@@ -3623,7 +3623,7 @@ export function Register({ initialMode = "register" }) {
                                     Click to browse or drag &amp; drop your poster / presentation
                                   </p>
                                   <p className="text-[11px] text-slate-400 mt-0.5">
-                                    PDF (.pdf), PowerPoint (.pptx, .ppt), or Image (.png, .jpg) up to 50 MB
+                                    PDF (.pdf) or PowerPoint (.pptx) up to 50 MB
                                   </p>
 
                                   <button
