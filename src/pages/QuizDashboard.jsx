@@ -197,6 +197,7 @@ export function QuizDashboard({ onExitLobby }) {
     }
   });
   const [lobbyPlayers, setLobbyPlayers] = useState([]);
+  const [lobbyPlayerCount, setLobbyPlayerCount] = useState(0);
   const [revealCountdown, setRevealCountdown] = useState(0);
   const [leaderboardCountdown, setLeaderboardCountdown] = useState(0);
   const [pacingMode, setPacingMode] = useState("auto"); // "auto" or "manual"
@@ -248,6 +249,7 @@ export function QuizDashboard({ onExitLobby }) {
 
   const wsRef = useRef(null);
   const timerRef = useRef(null);
+  const reconnectAttemptRef = useRef(0);
   // Ref so the security guard callback can read latest gameState without a stale closure
   const gameStateRef = useRef(gameState);
 
@@ -474,15 +476,20 @@ export function QuizDashboard({ onExitLobby }) {
 
     fetchConfig();
 
-    const poll = setInterval(() => {
-      if (!wsConnected && isMounted) {
-        fetchConfig();
-      }
-    }, 4000);
+    let pollTimeout;
+    const schedulePoll = () => {
+      // Jitter prevents a disconnected audience from polling together.
+      pollTimeout = setTimeout(() => {
+        if (!isMounted) return;
+        if (!wsConnected) fetchConfig();
+        schedulePoll();
+      }, 4000 + Math.floor(Math.random() * 2000));
+    };
+    schedulePoll();
 
     return () => {
       isMounted = false;
-      clearInterval(poll);
+      clearTimeout(pollTimeout);
     };
   }, [wsConnected]);
 
@@ -500,6 +507,7 @@ export function QuizDashboard({ onExitLobby }) {
 
         ws.onopen = () => {
           if (isUnmounted) return;
+          reconnectAttemptRef.current = 0;
           setWsConnected(true);
           ws.send(
             JSON.stringify({
@@ -530,7 +538,12 @@ export function QuizDashboard({ onExitLobby }) {
           if (wsUrl !== DEFAULT_WS_URL) {
             setWsUrl(DEFAULT_WS_URL);
           } else {
-            setTimeout(connect, 3000);
+            // Stagger reconnect attempts after an outage so hundreds of phones
+            // do not reconnect at the exact same instant.
+            const attempt = reconnectAttemptRef.current++;
+            const baseDelay = Math.min(13000, 3000 + attempt * 2500);
+            const jitter = Math.floor(Math.random() * 2000);
+            setTimeout(connect, baseDelay + jitter);
           }
         };
 
@@ -794,13 +807,6 @@ export function QuizDashboard({ onExitLobby }) {
             } catch (e) {}
           }
         }
-        // Request a fresh lobby roster shortly after joining
-        // (handles race where the broadcast LOBBY_STATE was consumed by a parallel test socket)
-        setTimeout(() => {
-          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({ type: "REQUEST_LOBBY_STATE" }));
-          }
-        }, 350);
         break;
 
       case "LOBBY_INACTIVE":
@@ -897,29 +903,12 @@ export function QuizDashboard({ onExitLobby }) {
         break;
 
       case "LOBBY_STATE":
-        setLobbyPlayers(msg.players || []);
+        if (Array.isArray(msg.players)) setLobbyPlayers(msg.players);
+        else if (Array.isArray(msg.recentPlayers)) setLobbyPlayers(msg.recentPlayers);
+        if (typeof msg.totalCount === "number") setLobbyPlayerCount(msg.totalCount);
         if (msg.activeSession !== undefined) {
           setActiveSession(msg.activeSession);
           setIsLobbyActive(!!msg.activeSession);
-        }
-        // Self-heal: if we are not in the server roster, re-send JOIN
-        if (
-          playerId &&
-          playerName &&
-          msg.players &&
-          !msg.players.some((p) => p.id === playerId) &&
-          wsRef.current &&
-          wsRef.current.readyState === WebSocket.OPEN
-        ) {
-          wsRef.current.send(
-            JSON.stringify({
-              type: "JOIN",
-              playerId,
-              name: playerName,
-              regNumber,
-              email: playerEmail,
-            })
-          );
         }
         break;
 
@@ -1520,10 +1509,10 @@ export function QuizDashboard({ onExitLobby }) {
                 <span className={`w-2 h-2 rounded-full ${activeSession ? "bg-emerald-400 animate-pulse" : !wsConnected ? "bg-sky-400 animate-pulse" : "bg-amber-400"}`} />
                 <span>
                   {activeSession
-                    ? `Doctors in Live Arena (${lobbyPlayers.length})`
+                    ? `Doctors in Live Arena (${lobbyPlayerCount || lobbyPlayers.length})`
                     : !wsConnected
                     ? "Connecting to Arena..."
-                    : `Doctors in Standby Queue (${lobbyPlayers.length})`}
+                    : `Doctors in Standby Queue (${lobbyPlayerCount || lobbyPlayers.length})`}
                 </span>
               </div>
               {lobbyPlayers.length > 0 ? (() => {
@@ -1532,7 +1521,7 @@ export function QuizDashboard({ onExitLobby }) {
                 const maxOthers = meInServer ? 24 : 25;
                 const displayedOthers = otherPlayers.slice(0, maxOthers);
                 const totalDisplayed = (meInServer ? 1 : 0) + displayedOthers.length;
-                const remaining = lobbyPlayers.length - totalDisplayed;
+                const remaining = Math.max(0, (lobbyPlayerCount || lobbyPlayers.length) - totalDisplayed);
 
                 return (
                   <div className="flex flex-wrap gap-1.5 justify-center max-h-28 overflow-y-auto p-1">
@@ -1894,7 +1883,7 @@ export function QuizDashboard({ onExitLobby }) {
                         #{finalResults?.rank || playerRank || 1}
                       </span>
                       <span className="text-sm sm:text-base font-bold text-purple-200">
-                        of {finalResults?.totalPlayers || lobbyPlayers.length || 1} Doctors
+                        of {finalResults?.totalPlayers || lobbyPlayerCount || lobbyPlayers.length || 1} Doctors
                       </span>
                     </div>
                     <div className="text-base sm:text-lg font-extrabold text-white mt-1">

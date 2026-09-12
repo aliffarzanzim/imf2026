@@ -80,6 +80,12 @@ export class QuizRoom extends DurableObject {
     this.finalLeaderboard = null;
     this.finalResultsByPlayerId = new Map();
 
+    // JOIN/LEAVE events can arrive in a large burst when the arena opens.
+    // Coalesce those updates so one thousand joins produce a few lobby
+    // broadcasts, rather than one roster rebuild and fan-out per join.
+    this.lobbyStatusTimer = null;
+    this.lobbyStatusQueued = false;
+
     // Initialize Sessions & Active Lobby
     this.sessions = [];
     this.activeSession = null;
@@ -178,6 +184,29 @@ export class QuizRoom extends DurableObject {
       try {
         this.ctx.storage.sql.exec("ALTER TABLE lobby_players ADD COLUMN academic_year TEXT");
       } catch (e) {}
+
+      // A participant identity belongs to the session and is based on the
+      // verified email/registration details, never a browser-generated ID.
+      // This keeps answer history intact when somebody changes device.
+      this.ctx.storage.sql.exec(`
+        CREATE TABLE IF NOT EXISTS session_participants (
+          session_id TEXT NOT NULL,
+          participant_id TEXT NOT NULL,
+          email TEXT DEFAULT '',
+          reg_number TEXT DEFAULT '',
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (session_id, participant_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_lobby_players_session_email ON lobby_players(session_id, email);
+        CREATE INDEX IF NOT EXISTS idx_lobby_players_session_reg ON lobby_players(session_id, reg_number);
+        CREATE INDEX IF NOT EXISTS idx_player_scores_session_email ON player_scores(session_id, email);
+        CREATE INDEX IF NOT EXISTS idx_player_scores_session_reg ON player_scores(session_id, reg_number);
+        CREATE INDEX IF NOT EXISTS idx_answers_session_player ON session_question_answers(session_id, player_id);
+        CREATE INDEX IF NOT EXISTS idx_answers_session_email ON session_question_answers(session_id, email);
+        CREATE INDEX IF NOT EXISTS idx_answers_session_reg ON session_question_answers(session_id, reg_number);
+        CREATE INDEX IF NOT EXISTS idx_participants_session_email ON session_participants(session_id, email);
+        CREATE INDEX IF NOT EXISTS idx_participants_session_reg ON session_participants(session_id, reg_number);
+      `);
 
       // Clean up any default dummy sessions that may have been created earlier
       try {
@@ -368,6 +397,80 @@ export class QuizRoom extends DurableObject {
       }
     }
     return fallbackDeduped;
+  }
+
+  getStableParticipantId(sessionId, browserPlayerId, email, regNumber) {
+    if (!sessionId) return browserPlayerId;
+    const cleanEmail = (email || "").trim().toLowerCase();
+    const cleanReg = (regNumber || "").replace(/[\[\]]/g, "").trim().toUpperCase();
+    if (!cleanEmail && !cleanReg) return browserPlayerId;
+
+    try {
+      const row = [...this.ctx.storage.sql.exec(
+        `SELECT participant_id FROM session_participants
+          WHERE session_id = ?
+            AND ((email != '' AND email = ?) OR (reg_number != '' AND reg_number = ?))
+          LIMIT 1`,
+        sessionId,
+        cleanEmail,
+        cleanReg
+      )][0];
+      if (row?.participant_id) return row.participant_id;
+
+      const participantId = "participant_" + crypto.randomUUID();
+      this.ctx.storage.sql.exec(
+        `INSERT INTO session_participants (session_id, participant_id, email, reg_number, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        sessionId,
+        participantId,
+        cleanEmail,
+        cleanReg,
+        Date.now()
+      );
+      return participantId;
+    } catch (e) {
+      console.error("Failed to resolve stable participant identity:", e);
+      return browserPlayerId;
+    }
+  }
+
+  migrateLiveParticipantId(sessionId, oldPlayerId, newPlayerId) {
+    if (!sessionId || !oldPlayerId || !newPlayerId || oldPlayerId === newPlayerId) return;
+    try {
+      // If both IDs somehow answered the same question, retain the stable-ID
+      // row and move every non-conflicting audit row to the stable identity.
+      this.ctx.storage.sql.exec(
+        `DELETE FROM session_question_answers
+          WHERE session_id = ? AND player_id = ?
+            AND question_idx IN (
+              SELECT question_idx FROM session_question_answers
+               WHERE session_id = ? AND player_id = ?
+            )`,
+        sessionId,
+        oldPlayerId,
+        sessionId,
+        newPlayerId
+      );
+      this.ctx.storage.sql.exec(
+        "UPDATE session_question_answers SET player_id = ? WHERE session_id = ? AND player_id = ?",
+        newPlayerId,
+        sessionId,
+        oldPlayerId
+      );
+    } catch (e) {
+      console.error("Failed to migrate participant answer identity:", e);
+    }
+  }
+
+  queueLobbyStatus() {
+    if (this.gameState !== "LOBBY") return;
+    if (this.lobbyStatusQueued) return;
+    this.lobbyStatusQueued = true;
+    this.lobbyStatusTimer = setTimeout(() => {
+      this.lobbyStatusTimer = null;
+      this.lobbyStatusQueued = false;
+      this.broadcastLobbyStatus();
+    }, 350);
   }
 
   syncConnectedPlayersToSession(sessionId) {
@@ -966,6 +1069,7 @@ export class QuizRoom extends DurableObject {
       this.ctx.storage.sql.exec("DELETE FROM lobby_players WHERE session_id = ?", sessionId);
       this.ctx.storage.sql.exec("DELETE FROM player_scores WHERE session_id = ?", sessionId);
       this.ctx.storage.sql.exec("DELETE FROM session_question_answers WHERE session_id = ?", sessionId);
+      this.ctx.storage.sql.exec("DELETE FROM session_participants WHERE session_id = ?", sessionId);
     } catch (e) {}
 
     this.sessions = this.getAllSessions();
@@ -1126,7 +1230,7 @@ export class QuizRoom extends DurableObject {
         ws.send(JSON.stringify({ type: "PONG" }));
 
         if (rosterChanged && this.gameState === "LOBBY") {
-          this.broadcastLobbyStatus();
+          this.queueLobbyStatus();
         }
       } catch (e) {}
       return;
@@ -1136,10 +1240,11 @@ export class QuizRoom extends DurableObject {
     if (msg.type === "REQUEST_LOBBY_STATE") {
       const playerList = this.getPlayerList();
       try {
+        const isHost = meta.role === "host";
         ws.send(
           JSON.stringify({
             type: "LOBBY_STATE",
-            players: playerList,
+            ...(isHost ? { players: playerList } : { recentPlayers: playerList.slice(-25) }),
             totalCount: playerList.length,
             activeSession: this.activeSession,
             hasActiveSession: !!this.activeSession,
@@ -1151,7 +1256,7 @@ export class QuizRoom extends DurableObject {
 
     // Handle Explicit Tab Close / Leave Page
     if (msg.type === "LEAVE") {
-      const pId = msg.playerId || meta.playerId;
+      const pId = meta.playerId || msg.playerId;
       try {
         ws.serializeAttachment({ role: "closed", playerId: null, email: null });
         ws.close(1000, "Normal leave");
@@ -1164,7 +1269,7 @@ export class QuizRoom extends DurableObject {
           this.savePlayerToDb(this.activeSession.id, p);
         }
         if (this.gameState === "LOBBY") {
-          this.broadcastLobbyStatus();
+          this.queueLobbyStatus();
         }
       }
       return;
@@ -1485,7 +1590,13 @@ export class QuizRoom extends DurableObject {
       const email = (msg.email || "").trim().toLowerCase().slice(0, 80);
       const institution = (msg.institution || "").trim().slice(0, 100);
       const academicYear = (msg.academicYear || "").trim().slice(0, 50);
-      const playerId = msg.playerId || socketId;
+      const browserPlayerId = msg.playerId || socketId;
+      const playerId = this.getStableParticipantId(
+        this.activeSession?.id,
+        browserPlayerId,
+        email,
+        regNumber
+      );
 
       // Enforce single active device per registered email or registration number
       let activeOtherWs = null;
@@ -1582,6 +1693,7 @@ export class QuizRoom extends DurableObject {
             const oldId = existing.id;
             this.players.delete(oldId);
             if (this.activeSession && !this.activeSession.isCompleted && this.gameState !== "PODIUM") {
+              this.migrateLiveParticipantId(this.activeSession.id, oldId, playerId);
               this.deletePlayerFromDb(this.activeSession.id, oldId);
             }
             break;
@@ -1788,7 +1900,7 @@ export class QuizRoom extends DurableObject {
             isWaiting: true,
           })
         );
-        this.broadcastLobbyStatus();
+        this.queueLobbyStatus();
         return;
       }
 
@@ -1925,7 +2037,7 @@ export class QuizRoom extends DurableObject {
         );
       }
 
-      this.broadcastLobbyStatus();
+      this.queueLobbyStatus();
       return;
     }
 
@@ -2180,7 +2292,7 @@ export class QuizRoom extends DurableObject {
     }
 
     if (this.gameState === "LOBBY") {
-      this.broadcastLobbyStatus();
+      this.queueLobbyStatus();
     }
   }
 
@@ -3263,18 +3375,8 @@ export class QuizRoom extends DurableObject {
         const lastAns = p.answers && p.answers[this.currentQuestionIdx];
         const pointsAdded = lastAns && lastAns.isCorrect ? (lastAns.points || 0) : 0;
         const prevScore = Math.max(0, (p.score || 0) - pointsAdded);
-        let inst = p.institution || p.college || "";
-        let yr = p.academicYear || p.year || "";
-        if (!inst || !yr) {
-          for (const s of this.ctx.getWebSockets()) {
-            const m = s.deserializeAttachment();
-            if (m && (m.playerId === p.id || m.id === p.id)) {
-              if (!inst && m.institution) inst = m.institution;
-              if (!yr && m.academicYear) yr = m.academicYear;
-              break;
-            }
-          }
-        }
+        const inst = p.institution || p.college || "";
+        const yr = p.academicYear || p.year || "";
         return {
           id: p.id,
           name: p.name,
@@ -3381,18 +3483,8 @@ export class QuizRoom extends DurableObject {
 
     const participants = this.getActiveParticipants();
     return participants.map((p) => {
-      let inst = p.institution || p.college || "";
-      let yr = p.academicYear || p.year || "";
-      if (!inst || !yr) {
-        for (const s of activeSockets) {
-          const m = s.deserializeAttachment();
-          if (m && (m.playerId === p.id || m.id === p.id)) {
-            if (!inst && m.institution) inst = m.institution;
-            if (!yr && m.academicYear) yr = m.academicYear;
-            break;
-          }
-        }
-      }
+      const inst = p.institution || p.college || "";
+      const yr = p.academicYear || p.year || "";
       return {
         id: p.id,
         name: p.name,
@@ -3414,12 +3506,14 @@ export class QuizRoom extends DurableObject {
     const hasActiveSession = !!this.activeSession;
     const payload = JSON.stringify({
       type: "LOBBY_STATE",
+      recentPlayers: playerList.slice(-25),
       totalCount,
       activeSession: this.activeSession,
       hasActiveSession,
     });
-    // BUG4 FIX: Players only need the count; full list goes to host only.
-    // At 1000 players, sending the full list to everyone = 1M data points per update.
+    // Participants receive only a small recent-join ticker plus the count;
+    // the host receives the full roster. This keeps a 1,000-person lobby
+    // responsive without losing the live-arena feeling.
     const hostPayload = JSON.stringify({
       type: "LOBBY_STATE",
       players: playerList,
