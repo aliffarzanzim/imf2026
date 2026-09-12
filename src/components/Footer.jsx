@@ -60,10 +60,10 @@ export function Footer({ onOpenAdmin, onOpenRegister, onOpenAbstract }) {
               </li>
               <li>
                 <button
-                  onClick={() => navigate("/career-club-qna")}
+                  onClick={() => navigate("/career-counselling-qna")}
                   className="text-slate-600 hover:text-sky-600 transition-colors font-medium text-left"
                 >
-                  Career Club Q&amp;A
+                  Career Counselling Q&amp;A
                 </button>
               </li>
             </ul>

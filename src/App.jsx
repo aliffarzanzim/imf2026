@@ -99,8 +99,12 @@ export function App() {
     if (route === "quiz-dashboard" && typeof window !== "undefined") {
       window.history.replaceState(null, "", "/quiz");
     }
-    pageContent = <QuizEntry />;
-  } else if (route === "career-club-qna" || route.startsWith("career-club-qna")) {
+  } else if (
+    route === "career-counselling-qna" ||
+    route.startsWith("career-counselling-qna") ||
+    route === "career-club-qna" ||
+    route.startsWith("career-club-qna")
+  ) {
     pageContent = <CareerClubQnA />;
   }
 

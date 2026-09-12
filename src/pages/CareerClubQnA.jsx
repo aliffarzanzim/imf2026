@@ -210,7 +210,7 @@ export function CareerClubQnA() {
 
       setEmail(cleanEmail);
       setIsEmailVerified(true);
-      showToast("Identity verified! Welcome to Career Club Q&A.");
+      showToast("Identity verified! Welcome to Career Counselling Q&A.");
       loadQuestions(cleanEmail);
     } catch (err) {
       console.warn("Network check error, attempting offline/fallback verification:", err);
@@ -220,7 +220,7 @@ export function CareerClubQnA() {
       } catch (_) {}
       setEmail(cleanEmail);
       setIsEmailVerified(true);
-      showToast("Access granted. Welcome to Career Club Q&A!");
+      showToast("Access granted. Welcome to Career Counselling Q&A!");
       loadQuestions(cleanEmail);
     } finally {
       setIsVerifyingEmail(false);
@@ -466,7 +466,7 @@ export function CareerClubQnA() {
           <div className="inline-flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-800 text-[11px] font-extrabold uppercase tracking-wider">
               <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-              <span>Career Club 2026</span>
+              <span>Career Counselling 2026</span>
             </span>
           </div>
         </div>
@@ -484,7 +484,7 @@ export function CareerClubQnA() {
 
               <div className="text-center mb-6">
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight mb-2">
-                  Career Club Q&amp;A
+                  Career Counselling Q&amp;A
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-500 max-w-xs mx-auto leading-relaxed">
                   Join the interactive Q&amp;A session with our career panel.
@@ -550,7 +550,7 @@ export function CareerClubQnA() {
                   ) : (
                     <>
                       <UserCheck className="w-4 h-4" />
-                      <span>Enter Career Club Q&amp;A</span>
+                      <span>Enter Career Counselling Q&amp;A</span>
                     </>
                   )}
                 </button>
@@ -588,7 +588,7 @@ export function CareerClubQnA() {
                     <span>Anonymous Q&amp;A Session Active</span>
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white mb-2">
-                    Career Club Q&amp;A
+                    Career Counselling Q&amp;A
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
                     Ask questions anonymously to the panel about internal medicine
@@ -680,7 +680,7 @@ export function CareerClubQnA() {
                 <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto mb-6">
                   {filterMode === "mine"
                     ? "Click 'Add a Question' above to submit your first anonymous question to the panel."
-                    : "Be the first to submit an anonymous question to the Career Club panel!"}
+                    : "Be the first to submit an anonymous question to the Career Counselling panel!"}
                 </p>
                 <button
                   onClick={handleOpenAddModal}
@@ -772,7 +772,7 @@ export function CareerClubQnA() {
                   <h3 className="text-base font-extrabold text-slate-900">
                     {editingQuestion ? "Edit Question" : "Add a Question"}
                   </h3>
-                  <p className="text-xs text-slate-400">Career Club Anonymous Q&amp;A</p>
+                  <p className="text-xs text-slate-400">Career Counselling Anonymous Q&amp;A</p>
                 </div>
               </div>
               <button
@@ -811,7 +811,7 @@ export function CareerClubQnA() {
                       setQuestionInput(e.target.value);
                       if (modalError) setModalError("");
                     }}
-                    placeholder="Type your question for the Career Club panel here... (e.g. What are the key preparation strategies for internal medicine residencies in Bangladesh and abroad?)"
+                    placeholder="Type your question for the Career Counselling panel here... (e.g. What are the key preparation strategies for internal medicine residencies in Bangladesh and abroad?)"
                     autoFocus
                     required
                     maxLength={2000}
