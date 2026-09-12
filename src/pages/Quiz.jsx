@@ -148,7 +148,7 @@ export function Quiz() {
       if (!wsConnected && isMounted) {
         fetchTunnelConfig();
       }
-    }, 4000);
+    }, 4000 + Math.floor(Math.random() * 2000));
 
     return () => {
       isMounted = false;
@@ -195,8 +195,8 @@ export function Quiz() {
         ws.onclose = () => {
           if (isUnmounted) return;
           setWsConnected(false);
-          console.log("[WS] Disconnected. Will retry in 3s...");
-          setTimeout(connect, 3000);
+          console.log("[WS] Disconnected. Retrying with jitter...");
+          setTimeout(connect, 3000 + Math.floor(Math.random() * 2000));
         };
 
         ws.onerror = (err) => {

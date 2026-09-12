@@ -2533,18 +2533,11 @@ export class QuizRoom extends DurableObject {
       const itemAns = item.answers && item.answers[this.currentQuestionIdx];
       const itemPts = itemAns && itemAns.isCorrect ? itemAns.points || 0 : 0;
       const itemPrevScore = Math.max(0, (item.score || 0) - itemPts);
-      let inst = item.institution || item.college || "";
-      let yr = item.academicYear || item.year || "";
-      if (!inst || !yr) {
-        for (const s of this.ctx.getWebSockets()) {
-          const m = s.deserializeAttachment();
-          if (m && (m.playerId === item.id || m.id === item.id)) {
-            if (!inst && m.institution) inst = m.institution;
-            if (!yr && m.academicYear) yr = m.academicYear;
-            break;
-          }
-        }
-      }
+      // Institution/year are retained on the player record at JOIN time.
+      // Do not scan all sockets for every cluster member during leaderboard
+      // fan-out; absent legacy metadata can safely remain blank.
+      const inst = item.institution || item.college || "";
+      const yr = item.academicYear || item.year || "";
       const initialSlot = initial5.findIndex((x) => x.id === item.id);
       const finalSlot = final5.findIndex((x) => x.id === item.id);
       return {
