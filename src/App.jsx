@@ -7,6 +7,7 @@ import { Admin } from "./pages/Admin";
 import { Verify } from "./pages/Verify";
 import { QuizEntry } from "./pages/QuizEntry";
 import { QuizMaster } from "./pages/QuizMaster";
+import { CareerClubQnA } from "./pages/CareerClubQnA";
 import { getCurrentRoute } from "./utils/navigation";
 
 class ErrorBoundary extends React.Component {
@@ -99,6 +100,8 @@ export function App() {
       window.history.replaceState(null, "", "/quiz");
     }
     pageContent = <QuizEntry />;
+  } else if (route === "career-club-qna" || route.startsWith("career-club-qna")) {
+    pageContent = <CareerClubQnA />;
   }
 
   return <ErrorBoundary>{pageContent}</ErrorBoundary>;
