@@ -7,9 +7,11 @@ import {
   playCorrectSound,
   playIncorrectSound,
   playFanfareSound,
+  setQuizMuted,
 } from "../utils/quizAudio";
 import { adminLogin, adminLogout, isAdminAuthed } from "../utils/api";
 import { AnimatedScoreboardList } from "../components/quiz/AnimatedScoreboard";
+import { KahootShape } from "../components/quiz/KahootShape";
 
 const KAHOOT_OPTION_THEMES = {
   A: { bg: "bg-[#e21b3c]", border: "border-[#b0132c]", shape: "▲" },
@@ -20,7 +22,7 @@ const KAHOOT_OPTION_THEMES = {
 };
 
 const DEFAULT_WS_URL = "wss://imf2026-quiz.crcck.workers.dev/ws";
-const QUESTION_TIMER_SEC = 25;
+const QUESTION_TIMER_SEC = 60;
 
 export function QuizMaster() {
   const [authed, setAuthed] = useState(isAdminAuthed());
@@ -45,26 +47,82 @@ export function QuizMaster() {
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [muted, setMuted] = useState(false);
 
-  // Game Sync State
-  const [gameState, setGameState] = useState("LOBBY"); // LOBBY, QUESTION, ANSWER_REVEAL, LEADERBOARD, PODIUM
-  const [currentQIndex, setCurrentQIndex] = useState(0);
+  // Game Sync State with sessionStorage persistence to eliminate reload flashing
+  const [gameState, setGameState] = useState(() => {
+    return sessionStorage.getItem("imf_qm_game_state") || "LOBBY";
+  }); // LOBBY, QUESTION, ANSWER_REVEAL, LEADERBOARD, PODIUM
+  const [currentQIndex, setCurrentQIndex] = useState(() => {
+    const saved = sessionStorage.getItem("imf_qm_current_q");
+    return saved ? parseInt(saved, 10) : 0;
+  });
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIMER_SEC);
   const [lobbyPlayers, setLobbyPlayers] = useState([]);
-  const [leaderboardData, setLeaderboardData] = useState([]);
+  const [leaderboardData, setLeaderboardData] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("imf_qm_leaderboard");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   const [revealStats, setRevealStats] = useState(null);
   const [liveAnswerCount, setLiveAnswerCount] = useState(0);
-  const [pacingMode, setPacingMode] = useState("auto"); // "auto" or "manual"
+  const [pacingMode, setPacingMode] = useState(() => {
+    return localStorage.getItem("imf_quiz_pacing_mode") || "auto";
+  }); // "auto" or "manual"
+  const [isPaused, setIsPaused] = useState(false);
   const [stageCountdown, setStageCountdown] = useState(0);
+  const [readyCountdown, setReadyCountdown] = useState(3);
+  const countdownStartsAtRef = useRef(null);
 
   // Session & Lobby Management State
   const [sessions, setSessions] = useState([]);
-  const [activeSession, setActiveSession] = useState(null);
+  const [activeSession, setActiveSession] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("imf_qm_active_session");
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const [initialSynced, setInitialSynced] = useState(false);
   const [newSessionName, setNewSessionName] = useState("");
   const [autoActivateNew, setAutoActivateNew] = useState(true);
   const [showSessionModal, setShowSessionModal] = useState(false);
 
   const wsRef = useRef(null);
   const timerRef = useRef(null);
+
+  // Sync state changes to sessionStorage to avoid flicker on reload
+  useEffect(() => {
+    if (gameState) {
+      sessionStorage.setItem("imf_qm_game_state", gameState);
+    }
+  }, [gameState]);
+
+  useEffect(() => {
+    sessionStorage.setItem("imf_qm_current_q", String(currentQIndex));
+  }, [currentQIndex]);
+
+  useEffect(() => {
+    if (leaderboardData && leaderboardData.length > 0) {
+      sessionStorage.setItem("imf_qm_leaderboard", JSON.stringify(leaderboardData));
+    }
+  }, [leaderboardData]);
+
+  useEffect(() => {
+    if (activeSession) {
+      sessionStorage.setItem("imf_qm_active_session", JSON.stringify(activeSession));
+    } else if (initialSynced) {
+      sessionStorage.removeItem("imf_qm_active_session");
+    }
+  }, [activeSession, initialSynced]);
+
+  // Fallback timer: ensure initialSynced flips true even if network is slow
+  useEffect(() => {
+    const t = setTimeout(() => setInitialSynced(true), 3500);
+    return () => clearTimeout(t);
+  }, []);
 
   // Stage countdown for auto-advance in ANSWER_REVEAL and LEADERBOARD
   useEffect(() => {
@@ -75,10 +133,112 @@ export function QuizMaster() {
     return () => clearInterval(interval);
   }, [stageCountdown]);
 
+  // Synchronized countdown for Question 1
+  useEffect(() => {
+    if (gameState !== "COUNTDOWN") return;
+    const updateCountdown = () => {
+      if (countdownStartsAtRef.current) {
+        const remaining = Math.max(0, Math.ceil((countdownStartsAtRef.current - Date.now()) / 1000));
+        setReadyCountdown(remaining);
+      } else {
+        setReadyCountdown((c) => Math.max(0, c - 1));
+      }
+    };
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 200);
+    return () => clearInterval(interval);
+  }, [gameState]);
+
   // Check auth on mount
   useEffect(() => {
     setAuthed(isAdminAuthed());
   }, []);
+
+  // Directory of delegates from registrations DB for resilient college and year lookup
+  const [registrationsDirectory, setRegistrationsDirectory] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("imf_qm_reg_dir");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (!authed) return;
+    async function loadDirectory() {
+      try {
+        const token = localStorage.getItem("imf_admin_token");
+        if (!token) return;
+        const res = await fetch("/api/admin/records", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.registrations && Array.isArray(data.registrations)) {
+            setRegistrationsDirectory(data.registrations);
+            sessionStorage.setItem("imf_qm_reg_dir", JSON.stringify(data.registrations));
+          }
+        }
+      } catch (e) {}
+    }
+    loadDirectory();
+  }, [authed]);
+
+  function getPlayerDetails(p) {
+    if (!p) return { college: "", year: "" };
+    const pMeta =
+      lobbyPlayers.find(
+        (lp) =>
+          (p.id && lp.id === p.id) ||
+          (p.regNumber &&
+            lp.regNumber &&
+            String(lp.regNumber).trim().toUpperCase() === String(p.regNumber).trim().toUpperCase()) ||
+          (p.name &&
+            lp.name &&
+            String(lp.name).trim().toLowerCase() === String(p.name).trim().toLowerCase())
+      ) || {};
+
+    const regRecord = registrationsDirectory.find((r) => {
+      const rReg = r.reg_number || r.regNumber || r.registrationNumber;
+      if (p.regNumber && rReg && String(rReg).trim().toUpperCase() === String(p.regNumber).trim().toUpperCase()) {
+        return true;
+      }
+      const rName = r.full_name || r.fullName || r.name;
+      if (p.name && rName && String(rName).trim().toLowerCase() === String(p.name).trim().toLowerCase()) {
+        return true;
+      }
+      if (p.id && (String(r.id) === String(p.id) || String(r.reg_number) === String(p.id))) {
+        return true;
+      }
+      return false;
+    });
+
+    const college =
+      p.college ||
+      p.institution ||
+      pMeta.institution ||
+      pMeta.college ||
+      regRecord?.institution ||
+      regRecord?.medicalCollege ||
+      regRecord?.medical_college ||
+      regRecord?.college ||
+      "";
+
+    const year =
+      p.year ||
+      p.academicYear ||
+      pMeta.academicYear ||
+      pMeta.year ||
+      regRecord?.academic_year ||
+      regRecord?.academicYear ||
+      regRecord?.batch ||
+      regRecord?.currentYear ||
+      regRecord?.year ||
+      "";
+
+    return { college, year };
+  }
 
   // Auto-fetch active tunnel URL from /api/quiz-config
   useEffect(() => {
@@ -184,6 +344,10 @@ export function QuizMaster() {
   }, [authed, wsUrl, hostPin]);
 
   function handleServerMessage(msg) {
+    if (msg.type !== "HOST_LOGIN_FAILED") {
+      setInitialSynced(true);
+    }
+
     switch (msg.type) {
       case "HOST_LOGIN_SUCCESS":
         setHostAuthed(true);
@@ -198,12 +362,30 @@ export function QuizMaster() {
           setGameState(msg.gameState || "LOBBY");
           setCurrentQIndex(msg.currentQuestionIdx || 0);
         }
-        if (msg.pacingMode) setPacingMode(msg.pacingMode);
+        if (msg.pacingMode) {
+          setPacingMode(msg.pacingMode);
+          localStorage.setItem("imf_quiz_pacing_mode", msg.pacingMode);
+        }
+        if (msg.isPaused !== undefined) setIsPaused(msg.isPaused);
         if (msg.players) setLobbyPlayers(msg.players);
+        if ((msg.gameState === "PODIUM" || msg.activeSession?.isCompleted) && msg.fullLeaderboard && Array.isArray(msg.fullLeaderboard) && msg.fullLeaderboard.length > 0) {
+          setLeaderboardData(msg.fullLeaderboard);
+          sessionStorage.setItem("imf_qm_leaderboard", JSON.stringify(msg.fullLeaderboard));
+        } else if (msg.leaderboard?.fullLeaderboard && Array.isArray(msg.leaderboard.fullLeaderboard) && msg.leaderboard.fullLeaderboard.length > 0) {
+          setLeaderboardData(msg.leaderboard.fullLeaderboard);
+          sessionStorage.setItem("imf_qm_leaderboard", JSON.stringify(msg.leaderboard.fullLeaderboard));
+        } else if (msg.leaderboard?.top10 && Array.isArray(msg.leaderboard.top10) && msg.leaderboard.top10.length > 0) {
+          setLeaderboardData(msg.leaderboard.top10);
+          sessionStorage.setItem("imf_qm_leaderboard", JSON.stringify(msg.leaderboard.top10));
+        } else if (msg.fullLeaderboard && Array.isArray(msg.fullLeaderboard) && msg.fullLeaderboard.length > 0) {
+          setLeaderboardData(msg.fullLeaderboard);
+          sessionStorage.setItem("imf_qm_leaderboard", JSON.stringify(msg.fullLeaderboard));
+        }
         break;
 
       case "PACING_MODE_UPDATED":
         setPacingMode(msg.pacingMode || "auto");
+        localStorage.setItem("imf_quiz_pacing_mode", msg.pacingMode || "auto");
         if (msg.pacingMode === "manual") setStageCountdown(0);
         break;
 
@@ -247,10 +429,35 @@ export function QuizMaster() {
         setRevealStats(null);
         setLiveAnswerCount(0);
         setStageCountdown(0);
+        sessionStorage.removeItem("imf_qm_active_session");
+        sessionStorage.setItem("imf_qm_game_state", "LOBBY");
         if (timerRef.current) clearInterval(timerRef.current);
         break;
 
+      case "QUIZ_PAUSED":
+        setIsPaused(true);
+        if (timerRef.current) clearInterval(timerRef.current);
+        if (msg.remainingSec !== undefined) setTimeLeft(msg.remainingSec);
+        break;
+
+      case "QUIZ_RESUMED":
+        setIsPaused(false);
+        if (msg.gameState === "QUESTION" && msg.remainingSec !== undefined) {
+          startClientTimer(msg.remainingSec);
+        }
+        break;
+
+      case "QUIZ_COUNTDOWN":
+        if (timerRef.current) clearInterval(timerRef.current);
+        setGameState("COUNTDOWN");
+        setReadyCountdown(msg.durationSec || 3);
+        countdownStartsAtRef.current = msg.startsAt || (Date.now() + (msg.durationSec || 3) * 1000);
+        setStageCountdown(msg.durationSec || 3);
+        playSelectSound(muted);
+        break;
+
       case "QUESTION_START":
+        setIsPaused(false);
         setGameState("QUESTION");
         setCurrentQIndex(msg.question.index);
         setTimeLeft(msg.question.durationSec || QUESTION_TIMER_SEC);
@@ -277,19 +484,27 @@ export function QuizMaster() {
         setGameState("LEADERBOARD");
         setLeaderboardData(msg.top10 || []);
         if (msg.pacingMode) setPacingMode(msg.pacingMode);
-        setStageCountdown(msg.autoNextSec || (msg.pacingMode === "auto" ? 6 : 0));
+        setStageCountdown(msg.autoNextSec || (msg.pacingMode === "auto" ? 5 : 0));
         break;
 
       case "QUIZ_FINISHED":
         setGameState("PODIUM");
         setLeaderboardData(msg.fullLeaderboard || []);
         setStageCountdown(0);
+        try {
+          sessionStorage.setItem("imf_qm_game_state", "PODIUM");
+          if (msg.fullLeaderboard && Array.isArray(msg.fullLeaderboard)) {
+            sessionStorage.setItem("imf_qm_leaderboard", JSON.stringify(msg.fullLeaderboard));
+          }
+        } catch (e) {}
         playFanfareSound(muted);
         break;
 
       case "RESET_TO_LOBBY":
         setGameState("LOBBY");
         setStageCountdown(0);
+        sessionStorage.removeItem("imf_qm_active_session");
+        sessionStorage.setItem("imf_qm_game_state", "LOBBY");
         break;
 
       default:
@@ -331,6 +546,7 @@ export function QuizMaster() {
 
   function handleSetPacingMode(mode) {
     setPacingMode(mode);
+    localStorage.setItem("imf_quiz_pacing_mode", mode);
     if (mode === "manual") setStageCountdown(0);
     sendHostAction("SET_PACING_MODE", { mode });
   }
@@ -382,6 +598,10 @@ export function QuizMaster() {
   }
 
   function handleLogout() {
+    sessionStorage.removeItem("imf_qm_active_session");
+    sessionStorage.removeItem("imf_qm_game_state");
+    sessionStorage.removeItem("imf_qm_current_q");
+    sessionStorage.removeItem("imf_qm_leaderboard");
     adminLogout();
     setAuthed(false);
     if (wsRef.current) wsRef.current.close();
@@ -399,10 +619,10 @@ export function QuizMaster() {
           </div>
 
           <h1 className="text-2xl font-black text-white text-center mb-1 tracking-tight">
-            Stage Quiz Master
+            Quiz Master
           </h1>
           <p className="text-xs text-slate-400 text-center mb-6">
-            Auditorium Projector &amp; Live Control Console
+            Live Control Console
           </p>
 
           {authError && (
@@ -431,7 +651,7 @@ export function QuizMaster() {
               disabled={authLoading}
               className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-sm shadow-xl shadow-purple-500/20 transition-transform active:scale-95 disabled:opacity-50"
             >
-              {authLoading ? "Verifying..." : "Unlock Stage Controls 🚀"}
+              {authLoading ? "Verifying..." : "Unlock Controls 🚀"}
             </button>
           </form>
 
@@ -460,10 +680,6 @@ export function QuizMaster() {
                 IMF 2026 Quiz Master
               </span>
             </a>
-
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/40 uppercase tracking-wider">
-              Auditorium Projector
-            </span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -480,12 +696,16 @@ export function QuizMaster() {
                 }`}
               />
               <span className="hidden sm:inline">
-                {wsConnected ? "Stage Connected" : "Connecting..."}
+                {wsConnected ? "Connected" : "Connecting..."}
               </span>
             </div>
 
             <button
-              onClick={() => setMuted(!muted)}
+              onClick={() => {
+                const nextMuted = !muted;
+                setMuted(nextMuted);
+                setQuizMuted(nextMuted);
+              }}
               title={muted ? "Unmute" : "Mute"}
               className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center border border-slate-700 transition"
             >
@@ -766,139 +986,144 @@ export function QuizMaster() {
       {/* Host Stage Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-8 flex flex-col justify-between">
         {/* Stage Host Controls Bar */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 mb-6 shadow-xl">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="px-3 py-1 rounded-full text-xs font-black bg-purple-500/20 text-purple-300 border border-purple-500/40">
-              STAGE CONTROL
-            </span>
-            <span className="text-xs text-slate-400">
-              Round: <strong className="text-white font-mono uppercase">{gameState}</strong>
-            </span>
+        {(initialSynced || activeSession) && gameState !== "PODIUM" && (
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 mb-6 shadow-xl">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="px-3 py-1 rounded-full text-xs font-black bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                CONTROL
+              </span>
 
-            {/* Dual Pacing Mode Switcher Pill */}
-            <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 ml-2">
-              <button
-                type="button"
-                onClick={() => handleSetPacingMode("auto")}
-                title="Automatically reveals right/wrong and smoothly moves to leaderboard and next question like Kahoot"
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
-                  pacingMode === "auto"
-                    ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <span>⚡</span>
-                <span>Auto-Advance (Kahoot)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetPacingMode("manual")}
-                title="Quiz master manually controls when to reveal answers, show leaderboard, and go to next question"
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
-                  pacingMode === "manual"
-                    ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <span>🖐️</span>
-                <span>Manual Control</span>
-              </button>
+              {isPaused && gameState !== "LOBBY" && gameState !== "PODIUM" && (
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse flex items-center gap-1">
+                  <span>⏸️</span>
+                  <span>PAUSED</span>
+                </span>
+              )}
+
+              {/* Dual Pacing Mode Switcher Pill */}
+              <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 ml-2">
+                <button
+                  type="button"
+                  onClick={() => handleSetPacingMode("auto")}
+                  title="Automatically reveals right/wrong and smoothly moves to leaderboard and next question"
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
+                    pacingMode === "auto"
+                      ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <span>⚡</span>
+                  <span>Auto-Advance</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetPacingMode("manual")}
+                  title="Quiz master manually controls when to reveal answers, show leaderboard, and go to next question"
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
+                    pacingMode === "manual"
+                      ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <span>🖐️</span>
+                  <span>Manual Control</span>
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {gameState === "LOBBY" && (
-              <button
-                onClick={() => sendHostAction("START_QUIZ")}
-                className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-emerald-500/20"
-              >
-                🚀 Launch Quiz (Q1)
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {gameState === "LOBBY" && (
+                <button
+                  onClick={() => sendHostAction("START_QUIZ")}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-emerald-500/20"
+                >
+                  🚀 Launch Quiz (Q1)
+                </button>
+              )}
 
-            {gameState === "QUESTION" && (
-              <button
-                onClick={() => sendHostAction("REVEAL_ANSWER")}
-                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-amber-500/20"
-              >
-                ⏱️ End Question &amp; Reveal
-              </button>
-            )}
+              {gameState === "QUESTION" && (
+                <button
+                  onClick={() => sendHostAction("REVEAL_ANSWER")}
+                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-amber-500/20"
+                >
+                  ⏱️ End Question &amp; Reveal
+                </button>
+              )}
 
-            {gameState === "ANSWER_REVEAL" && (
-              pacingMode === "auto" && stageCountdown > 0 ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-purple-300 bg-purple-500/10 border border-purple-500/20 px-3 py-2 rounded-xl flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
-                    <span>Leaderboard in {stageCountdown}s...</span>
-                  </span>
+              {gameState === "ANSWER_REVEAL" && (
+                pacingMode === "auto" && stageCountdown > 0 ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-purple-300 bg-purple-500/10 border border-purple-500/20 px-3 py-2 rounded-xl flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+                      <span>Leaderboard in {stageCountdown}s...</span>
+                    </span>
+                    <button
+                      onClick={() => sendHostAction("SHOW_LEADERBOARD")}
+                      className="px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-sky-500/20"
+                    >
+                      Show Now →
+                    </button>
+                  </div>
+                ) : (
                   <button
                     onClick={() => sendHostAction("SHOW_LEADERBOARD")}
-                    className="px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-sky-500/20"
+                    className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-sky-500/20"
                   >
-                    Show Now →
+                    🏆 Show Leaderboard
                   </button>
-                  <button
-                    onClick={() => handleSetPacingMode("manual")}
-                    title="Pause auto-advance and switch to manual control"
-                    className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
-                  >
-                    ⏸️ Pause
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => sendHostAction("SHOW_LEADERBOARD")}
-                  className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-sky-500/20"
-                >
-                  🏆 Show Leaderboard
-                </button>
-              )
-            )}
+                )
+              )}
 
-            {gameState === "LEADERBOARD" && (
-              pacingMode === "auto" && stageCountdown > 0 ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-xl flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                    <span>Next Question in {stageCountdown}s...</span>
-                  </span>
+              {gameState === "LEADERBOARD" && (
+                pacingMode === "auto" && stageCountdown > 0 ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-xl flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      <span>Next Question in {stageCountdown}s...</span>
+                    </span>
+                    <button
+                      onClick={() => sendHostAction("NEXT_QUESTION")}
+                      className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-emerald-500/20"
+                    >
+                      Next Question →
+                    </button>
+                  </div>
+                ) : (
                   <button
                     onClick={() => sendHostAction("NEXT_QUESTION")}
-                    className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-emerald-500/20"
+                    className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-emerald-500/20"
                   >
                     Next Question →
                   </button>
-                  <button
-                    onClick={() => handleSetPacingMode("manual")}
-                    title="Pause auto-advance and switch to manual control"
-                    className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
-                  >
-                    ⏸️ Pause
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => sendHostAction("NEXT_QUESTION")}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg shadow-emerald-500/20"
-                >
-                  Next Question →
-                </button>
-              )
-            )}
+                )
+              )}
 
-            <button
-              onClick={() => {
-                if (confirm("Reset the entire live quiz back to lobby?")) {
-                  sendHostAction("RESET");
-                }
-              }}
-              className="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-semibold transition"
-            >
-              Reset
-            </button>
+              {gameState !== "LOBBY" && gameState !== "PODIUM" && gameState !== "COUNTDOWN" && (
+                isPaused ? (
+                  <button
+                    type="button"
+                    onClick={() => sendHostAction("RESUME_QUIZ")}
+                    title="Resume Quiz and Countdowns"
+                    className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition flex items-center gap-1.5 active:scale-95 shadow-lg shadow-emerald-500/20 animate-pulse"
+                  >
+                    <span>⏸️</span>
+                    <span>Play (Resume)</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => sendHostAction("PAUSE_QUIZ")}
+                    title="Hold / Freeze Quiz and Exam Countdown"
+                    className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition flex items-center gap-1.5 active:scale-95 shadow-lg shadow-amber-500/20"
+                  >
+                    <span>⏸️</span>
+                    <span>Pause</span>
+                  </button>
+                )
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── STAGE LOBBY SCREEN ── */}
         {gameState === "LOBBY" && (
@@ -935,6 +1160,13 @@ export function QuizMaster() {
                     >
                       <span>🗂️ Sessions ({sessions.length})</span>
                     </button>
+                  </div>
+                </div>
+              ) : !initialSynced ? (
+                <div className="bg-slate-950/60 border border-slate-800 rounded-3xl p-6 sm:p-8 mb-6 text-center animate-pulse">
+                  <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-400 rounded-full animate-spin mx-auto mb-3" />
+                  <div className="text-xs font-mono text-slate-400">
+                    Syncing live arena session...
                   </div>
                 </div>
               ) : (
@@ -1024,6 +1256,38 @@ export function QuizMaster() {
           </div>
         )}
 
+        {/* ── STAGE COUNTDOWN (QUESTION 1) ── */}
+        {gameState === "COUNTDOWN" && (
+          <div className="bg-slate-900/95 border border-emerald-500/30 rounded-3xl p-8 sm:p-14 text-center shadow-2xl animate-in fade-in zoom-in-95 duration-200 relative overflow-hidden my-auto max-w-2xl mx-auto w-full">
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-teal-500/15 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 mb-6 shadow-sm tracking-widest uppercase">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+              <span>IMF 2026 Official Clinical Quiz Arena</span>
+            </div>
+
+            <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight mb-2">
+              GET READY!
+            </h1>
+            <p className="text-base sm:text-xl font-bold text-emerald-400 mb-8">
+              Question 1 of {QUIZ_QUESTIONS.length} Launching
+            </p>
+
+            <div className="relative w-44 h-44 mx-auto mb-8 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-emerald-500/30 animate-ping opacity-60" />
+              <div className="absolute inset-2 rounded-full border-2 border-teal-400/40 animate-pulse" />
+              <div className="w-36 h-36 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-2xl shadow-emerald-500/40 text-slate-950 font-black text-7xl font-mono">
+                {readyCountdown > 0 ? readyCountdown : "GO!"}
+              </div>
+            </div>
+
+            <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-sm text-slate-300 font-medium max-w-md mx-auto">
+              📡 Synchronizing all participant phones across the arena...
+            </div>
+          </div>
+        )}
+
         {/* ── STAGE ACTIVE QUESTION & IN-PLACE ANSWER REVEAL ── */}
         {(gameState === "QUESTION" || gameState === "ANSWER_REVEAL") && (
           <div className="space-y-6 my-auto animate-in fade-in duration-150">
@@ -1038,14 +1302,16 @@ export function QuizMaster() {
               {gameState === "QUESTION" ? (
                 <div
                   className={`w-28 h-28 rounded-3xl flex flex-col items-center justify-center shrink-0 border-4 font-mono shadow-2xl transition-all ${
-                    timeLeft <= 5
+                    isPaused
+                      ? "bg-amber-500/20 border-amber-500 text-amber-400"
+                      : timeLeft <= 5
                       ? "bg-rose-500/20 border-rose-500 text-rose-400 animate-pulse scale-105"
                       : "bg-slate-950 border-emerald-500 text-emerald-400"
                   }`}
                 >
                   <span className="text-4xl font-black">{timeLeft}</span>
                   <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">
-                    SEC
+                    {isPaused ? "PAUSED" : "SEC"}
                   </span>
                 </div>
               ) : (
@@ -1056,30 +1322,7 @@ export function QuizMaster() {
               )}
             </div>
 
-            {/* In-Place Kahoot Correct Answer Banner */}
-            {gameState === "ANSWER_REVEAL" && (
-              <div className="animate-in zoom-in-95 duration-200">
-                <div className="py-4 px-8 rounded-2xl bg-[#26890c] border-2 border-emerald-300 text-white shadow-2xl shadow-emerald-500/30 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <span className="w-11 h-11 rounded-full bg-white text-[#26890c] flex items-center justify-center font-black text-2xl shadow-lg">
-                      ✔
-                    </span>
-                    <div>
-                      <div className="text-xs uppercase font-extrabold tracking-widest text-emerald-200">
-                        Official Answer
-                      </div>
-                      <div className="text-2xl sm:text-3xl font-black tracking-tight">
-                        Option {activeQuestion.correctAnswer}: {activeQuestion.options.find((o) => o.key === activeQuestion.correctAnswer)?.text}
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 text-xs font-extrabold">
-                    <span>Responses: {liveAnswerCount} / {lobbyPlayers.length || "All"}</span>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Clean Merged Question Card */}
             <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
@@ -1090,26 +1333,31 @@ export function QuizMaster() {
 
             {/* Option Cards: Kahoot Full-Color Buttons */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {activeQuestion.options.map((opt) => {
+              {activeQuestion.options.map((opt, optIdx) => {
                 const theme = KAHOOT_OPTION_THEMES[opt.key] || KAHOOT_OPTION_THEMES.A;
                 const isRevealed = gameState === "ANSWER_REVEAL";
                 const isCorrect = isRevealed && opt.key === activeQuestion.correctAnswer;
+
+                const isRightCol = optIdx % 2 === 1;
+                const badgePosClass = isRightCol
+                  ? "absolute top-3 left-4 md:left-auto md:right-4"
+                  : "absolute top-3 left-4";
 
                 let cardStyle = "";
                 let badge = null;
 
                 if (isRevealed) {
                   if (isCorrect) {
-                    cardStyle = "bg-[#26890c] text-white border-2 border-white ring-4 ring-green-400/50 shadow-2xl scale-[1.02] font-black";
+                    cardStyle = "bg-[#26890c] text-white border-2 border-emerald-300 ring-4 ring-green-400/50 shadow-2xl scale-[1.02] font-black";
                     badge = (
-                      <span className="w-9 h-9 rounded-full bg-white text-[#26890c] flex items-center justify-center font-black text-lg shadow-md shrink-0">
+                      <span className="w-9 h-9 rounded-full bg-[#1e6f0a] border-2 border-white text-white flex items-center justify-center font-black text-lg shadow-md shrink-0">
                         ✔
                       </span>
                     );
                   } else {
-                    cardStyle = "bg-[#250f3c] border-white/10 text-white/40 opacity-30";
+                    cardStyle = "bg-[#e21b3c]/20 border border-red-500/30 text-red-200/50 font-semibold opacity-60";
                     badge = (
-                      <span className="w-8 h-8 rounded-full bg-slate-900 text-slate-500 flex items-center justify-center font-bold text-sm shrink-0">
+                      <span className="w-8 h-8 rounded-full bg-red-950/60 border border-red-500/30 text-red-300/60 flex items-center justify-center font-black text-sm shrink-0">
                         ✖
                       </span>
                     );
@@ -1123,19 +1371,21 @@ export function QuizMaster() {
                     key={opt.key}
                     className={`relative rounded-2xl p-5 sm:p-6 flex items-center justify-center text-center border border-white/10 transition-all min-h-[82px] sm:min-h-[96px] ${cardStyle}`}
                   >
-                    {/* Shape smaller in upper-left corner only (Kahoot style) */}
-                    <span className="absolute top-3 left-4 text-white/90 text-sm sm:text-base font-black select-none pointer-events-none drop-shadow">
-                      {theme.shape}
-                    </span>
+                    {/* Shape is visible ONLY during question, GONE when answer is revealed */}
+                    {!isRevealed && (
+                      <span className="absolute top-3 left-4 flex items-center justify-center select-none pointer-events-none drop-shadow-sm">
+                        <KahootShape shape={opt.key} className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-white/85" />
+                      </span>
+                    )}
 
                     {/* Option Text centered and bold for auditorium projection */}
-                    <span className={`text-base sm:text-xl px-6 ${isRevealed && isCorrect ? "font-black" : "font-extrabold"}`}>
+                    <span className={`text-base sm:text-xl px-10 ${isRevealed && isCorrect ? "font-black" : "font-extrabold"}`}>
                       {opt.text}
                     </span>
 
-                    {/* Reveal badge in upper-right corner */}
+                    {/* Reveal badge in responsive upper corner */}
                     {badge && (
-                      <div className="absolute top-3 right-4">
+                      <div className={badgePosClass}>
                         {badge}
                       </div>
                     )}
@@ -1163,9 +1413,6 @@ export function QuizMaster() {
             <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
 
             <div className="text-center mb-8">
-              <span className="px-4 py-1.5 rounded-full text-xs font-black bg-purple-500/20 text-purple-300 border border-purple-500/30 inline-block mb-3 uppercase tracking-widest">
-                STAGE AUDITORIUM STANDINGS
-              </span>
               <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
                 Scoreboard
               </h2>
@@ -1191,54 +1438,132 @@ export function QuizMaster() {
         {/* ── STAGE PODIUM SCREEN ── */}
         {gameState === "PODIUM" && (
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 sm:p-12 text-center shadow-2xl my-auto">
-            <div className="text-5xl mb-3">🏆</div>
+            <div className="text-5xl sm:text-6xl mb-3 inline-block animate-bounce select-none">🏆</div>
             <h1 className="text-3xl sm:text-5xl font-black text-white mb-2">Quiz Champions</h1>
             <p className="text-xs sm:text-sm text-slate-400 mb-8">
-              National Internal Medicine Festival 2026 Live Arena
+              Internal Medicine Festival 2026 Live Quiz Arena
             </p>
 
-            <div className="flex flex-col sm:flex-row items-end justify-center gap-4 max-w-2xl mx-auto">
+            <div className="flex flex-col sm:flex-row items-end justify-center gap-4 max-w-4xl mx-auto">
               {/* 2nd Place */}
-              {leaderboardData[1] && (
-                <div className="w-full sm:w-1/3 bg-slate-950 border border-slate-800 rounded-3xl p-6 order-2 sm:order-1">
-                  <div className="text-3xl mb-2">🥈</div>
-                  <div className="text-xs text-slate-400 font-bold mb-1">2nd Place</div>
-                  <div className="text-base font-black text-white mb-1 truncate">
-                    {leaderboardData[1].name}
+              {leaderboardData[1] && (() => {
+                const p = leaderboardData[1];
+                const { college, year } = getPlayerDetails(p);
+
+                return (
+                  <div className="w-full sm:w-1/3 bg-slate-950 border border-slate-800 rounded-3xl p-5 sm:p-6 order-2 sm:order-1 flex flex-col justify-between min-h-[220px]">
+                    <div>
+                      <div className="text-3xl mb-1">🥈</div>
+                      <div className="text-xs text-slate-400 font-bold mb-1">2nd Place</div>
+                      <div className="text-base font-black text-white mb-1 leading-tight">
+                        {p.name}
+                      </div>
+                      {p.regNumber && (
+                        <div className="text-[11px] text-slate-500 font-mono mb-1.5">
+                          [{p.regNumber}]
+                        </div>
+                      )}
+                      {(college || year) && (
+                        <div className="my-2 py-1.5 px-2.5 rounded-xl bg-white/5 border border-white/5 space-y-0.5">
+                          {college && (
+                            <div className="text-xs text-slate-300 font-medium leading-snug break-words">
+                              {college}
+                            </div>
+                          )}
+                          {year && (
+                            <div className="text-xs text-purple-300 font-bold leading-tight">
+                              {year}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="font-mono text-sm sm:text-base text-emerald-400 font-black mt-2 pt-2 border-t border-slate-800/60">
+                      {p.score.toLocaleString()} pts
+                    </div>
                   </div>
-                  <div className="font-mono text-sm text-emerald-400 font-black">
-                    {leaderboardData[1].score.toLocaleString()} pts
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* 1st Place */}
-              {leaderboardData[0] && (
-                <div className="w-full sm:w-1/3 bg-gradient-to-b from-amber-500/20 to-slate-950 border-2 border-amber-400 rounded-3xl p-8 order-1 sm:order-2 shadow-2xl scale-105">
-                  <div className="text-5xl mb-2">👑</div>
-                  <div className="text-xs text-amber-400 font-bold uppercase mb-1">CHAMPION</div>
-                  <div className="text-lg font-black text-white mb-1 truncate">
-                    {leaderboardData[0].name}
+              {leaderboardData[0] && (() => {
+                const p = leaderboardData[0];
+                const { college, year } = getPlayerDetails(p);
+
+                return (
+                  <div className="w-full sm:w-1/3 bg-gradient-to-b from-amber-500/20 to-slate-950 border-2 border-amber-400 rounded-3xl p-6 sm:p-8 order-1 sm:order-2 shadow-2xl scale-105 flex flex-col justify-between min-h-[260px]">
+                    <div>
+                      <div className="text-5xl mb-2">👑</div>
+                      <div className="text-xs text-amber-400 font-bold uppercase mb-1">CHAMPION</div>
+                      <div className="text-lg sm:text-xl font-black text-white mb-1 leading-tight">
+                        {p.name}
+                      </div>
+                      {p.regNumber && (
+                        <div className="text-xs text-amber-300/80 font-mono mb-2">
+                          [{p.regNumber}]
+                        </div>
+                      )}
+                      {(college || year) && (
+                        <div className="my-2 py-2 px-3 rounded-2xl bg-amber-500/15 border border-amber-500/30 space-y-0.5">
+                          {college && (
+                            <div className="text-xs sm:text-sm text-amber-100 font-semibold leading-snug break-words">
+                              {college}
+                            </div>
+                          )}
+                          {year && (
+                            <div className="text-xs sm:text-sm text-amber-300 font-black leading-tight">
+                              {year}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="font-mono text-lg sm:text-xl text-amber-400 font-black mt-2 pt-2 border-t border-amber-500/20">
+                      {p.score.toLocaleString()} pts
+                    </div>
                   </div>
-                  <div className="font-mono text-lg text-amber-400 font-black">
-                    {leaderboardData[0].score.toLocaleString()} pts
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* 3rd Place */}
-              {leaderboardData[2] && (
-                <div className="w-full sm:w-1/3 bg-slate-950 border border-slate-800 rounded-3xl p-6 order-3">
-                  <div className="text-3xl mb-2">🥉</div>
-                  <div className="text-xs text-slate-400 font-bold mb-1">3rd Place</div>
-                  <div className="text-base font-black text-white mb-1 truncate">
-                    {leaderboardData[2].name}
+              {leaderboardData[2] && (() => {
+                const p = leaderboardData[2];
+                const { college, year } = getPlayerDetails(p);
+
+                return (
+                  <div className="w-full sm:w-1/3 bg-slate-950 border border-slate-800 rounded-3xl p-5 sm:p-6 order-3 flex flex-col justify-between min-h-[220px]">
+                    <div>
+                      <div className="text-3xl mb-1">🥉</div>
+                      <div className="text-xs text-slate-400 font-bold mb-1">3rd Place</div>
+                      <div className="text-base font-black text-white mb-1 leading-tight">
+                        {p.name}
+                      </div>
+                      {p.regNumber && (
+                        <div className="text-[11px] text-slate-500 font-mono mb-1.5">
+                          [{p.regNumber}]
+                        </div>
+                      )}
+                      {(college || year) && (
+                        <div className="my-2 py-1.5 px-2.5 rounded-xl bg-white/5 border border-white/5 space-y-0.5">
+                          {college && (
+                            <div className="text-xs text-slate-300 font-medium leading-snug break-words">
+                              {college}
+                            </div>
+                          )}
+                          {year && (
+                            <div className="text-xs text-purple-300 font-bold leading-tight">
+                              {year}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="font-mono text-sm sm:text-base text-emerald-400 font-black mt-2 pt-2 border-t border-slate-800/60">
+                      {p.score.toLocaleString()} pts
+                    </div>
                   </div>
-                  <div className="font-mono text-sm text-emerald-400 font-black">
-                    {leaderboardData[2].score.toLocaleString()} pts
-                  </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* Full Top Results Table */}
@@ -1246,7 +1571,7 @@ export function QuizMaster() {
               <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
                 <div className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
                   <span>📋</span>
-                  <span>Top Results &amp; Final Rankings ({leaderboardData.length} Total)</span>
+                  <span>Top 10 Results &amp; Final Rankings ({leaderboardData.length} Total)</span>
                 </div>
                 <span className="text-xs text-slate-400 font-mono">
                   {activeSession?.name || "Active Round"}
@@ -1254,43 +1579,64 @@ export function QuizMaster() {
               </div>
 
               <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-                {leaderboardData.map((p, idx) => (
-                  <div
-                    key={p.id || idx}
-                    className={`flex items-center justify-between px-4 py-3 rounded-xl border transition ${
-                      idx === 0
-                        ? "bg-amber-500/15 border-amber-500/50 text-white font-black"
-                        : idx === 1
-                        ? "bg-slate-800/80 border-slate-600 text-slate-100 font-bold"
-                        : idx === 2
-                        ? "bg-amber-950/30 border-amber-700/40 text-amber-100 font-bold"
-                        : "bg-white/5 border-white/5 text-slate-200"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="w-8 font-black text-purple-400 text-sm">
-                        #{idx + 1}
-                      </span>
-                      <span className="font-bold truncate max-w-[240px] sm:max-w-[340px]">
-                        {p.name}
-                      </span>
-                      {p.regNumber && (
-                        <span className="text-xs text-slate-400 font-mono">
-                          [{p.regNumber}]
-                        </span>
-                      )}
-                    </div>
+                {leaderboardData.slice(0, 10).map((p, idx) => {
+                  const { college, year } = getPlayerDetails(p);
 
-                    <div className="flex items-center gap-4 shrink-0">
-                      <span className="text-xs text-slate-400 font-mono hidden sm:inline">
-                        {p.streak || 0} streak 🔥
-                      </span>
-                      <span className="font-mono text-emerald-400 font-black text-sm sm:text-base">
-                        {p.score.toLocaleString()} pts
-                      </span>
+                  return (
+                    <div
+                      key={p.id || idx}
+                      className={`flex items-center justify-between px-4 py-3 rounded-xl border transition ${
+                        idx === 0
+                          ? "bg-amber-500/15 border-amber-500/50 text-white font-black"
+                          : idx === 1
+                          ? "bg-slate-800/80 border-slate-600 text-slate-100 font-bold"
+                          : idx === 2
+                          ? "bg-amber-950/30 border-amber-700/40 text-amber-100 font-bold"
+                          : "bg-white/5 border-white/5 text-slate-200"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="w-8 font-black text-purple-400 text-sm shrink-0">
+                          #{idx + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            <span className="font-bold text-white break-words leading-tight">
+                              {p.name}
+                            </span>
+                            {p.regNumber && (
+                              <span className="text-xs text-slate-400 font-mono whitespace-nowrap">
+                                [{p.regNumber}]
+                              </span>
+                            )}
+                          </div>
+                          {(college || year) && (
+                            <div className="text-xs text-slate-400 font-medium flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 leading-snug">
+                              <span className="break-words">{college || "Medical College"}</span>
+                              {year && (
+                                <>
+                                  <span className="text-slate-500">•</span>
+                                  <span className="text-purple-300/90 font-bold whitespace-nowrap">
+                                    {year}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4 shrink-0">
+                        <span className="text-xs text-slate-400 font-mono hidden sm:inline">
+                          {p.bestStreak ?? p.maxStreak ?? p.streak ?? 0} streak 🔥
+                        </span>
+                        <span className="font-mono text-emerald-400 font-black text-sm sm:text-base">
+                          {p.score.toLocaleString()} pts
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {leaderboardData.length === 0 && (
                   <div className="text-center py-6 text-xs text-slate-500 italic">

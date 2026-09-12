@@ -191,6 +191,66 @@ body {
   animation: badgeShimmer 4s ease-in-out infinite;
 }
 
+/* ── Tab-switch warning banner slide-down ── */
+@keyframes slideDown {
+  from { transform: translateY(-110%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+/* ── Anti-Cheat: Disable user text selection across the entire quiz UI ── */
+.quiz-secure-content,
+.quiz-secure-content * {
+  -webkit-user-select: none !important;
+  -moz-user-select:    none !important;
+  -ms-user-select:     none !important;
+  user-select:         none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Allow selection inside input/textarea so form fields still work */
+.quiz-secure-content input,
+.quiz-secure-content textarea,
+.quiz-secure-content select {
+  -webkit-user-select: text !important;
+  user-select:         text !important;
+}
+
+
+/* ── Kahoot Angular Fly-Through Animation (Enters from left at -2.5deg, holds ~3s, exits to right) ── */
+/* Total: 4.5s | Enter: 0-11% (0.5s) | Hold: 11-78% (3.0s) | Exit: 78-100% (0.99s) */
+@keyframes kahootFlyThrough {
+  0% {
+    transform: translate3d(-100vw, 0, 0) rotate(-2.5deg);
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  2% {
+    opacity: 1;
+  }
+  11% {
+    transform: translate3d(0, 0, 0) rotate(-2.5deg);
+    opacity: 1;
+    animation-timing-function: linear;
+  }
+  78% {
+    transform: translate3d(0, 0, 0) rotate(-2.5deg);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.7, 1);
+  }
+  97% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(100vw, 0, 0) rotate(-2.5deg);
+    opacity: 0;
+  }
+}
+
+.animate-kahoot-fly {
+  animation: kahootFlyThrough 4.5s linear forwards;
+  will-change: transform, opacity;
+}
+
 /* ── Print Media Optimization (Clean Attendee Pass / Certificate) ── */
 @media print {
   @page {

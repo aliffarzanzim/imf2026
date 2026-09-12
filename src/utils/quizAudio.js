@@ -2,6 +2,17 @@
 // Procedural audio synthesizer using Web Audio API (0 external assets, instant zero-latency feedback)
 
 let audioCtx = null;
+let isGloballyMuted = false;
+
+// Audio callbacks can outlive a React render (WebSocket and interval handlers
+// commonly capture an old `muted` value). Keep the authoritative mute switch
+// here so every sound honours the header control immediately.
+export function setQuizMuted(muted) {
+  isGloballyMuted = Boolean(muted);
+  if (isGloballyMuted && audioCtx && audioCtx.state === "running") {
+    audioCtx.suspend().catch(() => {});
+  }
+}
 
 function getAudioContext() {
   if (typeof window === "undefined") return null;
@@ -11,14 +22,14 @@ function getAudioContext() {
       audioCtx = new AudioContextClass();
     }
   }
-  if (audioCtx && audioCtx.state === "suspended") {
+  if (audioCtx && audioCtx.state === "suspended" && !isGloballyMuted) {
     audioCtx.resume();
   }
   return audioCtx;
 }
 
 export function playSelectSound(muted = false) {
-  if (muted) return;
+  if (muted || isGloballyMuted) return;
   const ctx = getAudioContext();
   if (!ctx) return;
 
@@ -38,7 +49,7 @@ export function playSelectSound(muted = false) {
 }
 
 export function playTickSound(muted = false) {
-  if (muted) return;
+  if (muted || isGloballyMuted) return;
   const ctx = getAudioContext();
   if (!ctx) return;
 
@@ -57,7 +68,7 @@ export function playTickSound(muted = false) {
 }
 
 export function playCorrectSound(muted = false) {
-  if (muted) return;
+  if (muted || isGloballyMuted) return;
   const ctx = getAudioContext();
   if (!ctx) return;
 
@@ -81,7 +92,7 @@ export function playCorrectSound(muted = false) {
 }
 
 export function playIncorrectSound(muted = false) {
-  if (muted) return;
+  if (muted || isGloballyMuted) return;
   const ctx = getAudioContext();
   if (!ctx) return;
 
@@ -102,7 +113,7 @@ export function playIncorrectSound(muted = false) {
 }
 
 export function playFanfareSound(muted = false) {
-  if (muted) return;
+  if (muted || isGloballyMuted) return;
   const ctx = getAudioContext();
   if (!ctx) return;
 

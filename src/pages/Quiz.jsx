@@ -7,6 +7,7 @@ import {
   playCorrectSound,
   playIncorrectSound,
   playFanfareSound,
+  setQuizMuted,
 } from "../utils/quizAudio";
 
 // Distinct Kahoot-style color themes for options A, B, C, D, E
@@ -49,7 +50,7 @@ const OPTION_THEMES = {
 };
 
 const DEFAULT_WS_URL = "wss://imf2026-quiz.crcck.workers.dev/ws";
-const QUESTION_TIMER_SEC = 25;
+const QUESTION_TIMER_SEC = 60;
 
 export function Quiz() {
   // Mode: "player" | "host"
@@ -452,7 +453,11 @@ export function Quiz() {
 
             {/* Sound Toggle */}
             <button
-              onClick={() => setMuted(!muted)}
+              onClick={() => {
+                const nextMuted = !muted;
+                setMuted(nextMuted);
+                setQuizMuted(nextMuted);
+              }}
               title={muted ? "Unmute sound" : "Mute sound"}
               className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center border border-slate-700 transition"
             >
@@ -573,7 +578,7 @@ export function Quiz() {
                 Enter Live Arena
               </h1>
               <p className="text-xs text-slate-400 mb-4">
-                National Internal Medicine Festival 2026 Live Quiz
+                Internal Medicine Festival 2026 Live Quiz
               </p>
 
               {/* Connection Status Banner */}

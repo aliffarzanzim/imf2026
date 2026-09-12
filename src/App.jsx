@@ -6,7 +6,6 @@ import { SubmitAbstract } from "./pages/SubmitAbstract";
 import { Admin } from "./pages/Admin";
 import { Verify } from "./pages/Verify";
 import { QuizEntry } from "./pages/QuizEntry";
-import { QuizDashboard } from "./pages/QuizDashboard";
 import { QuizMaster } from "./pages/QuizMaster";
 import { getCurrentRoute } from "./utils/navigation";
 
@@ -95,9 +94,10 @@ export function App() {
       window.location.search.includes("mode=host"))
   ) {
     pageContent = <QuizMaster />;
-  } else if (route === "quiz-dashboard") {
-    pageContent = <QuizDashboard />;
   } else if (route === "quiz" || route.startsWith("quiz")) {
+    if (route === "quiz-dashboard" && typeof window !== "undefined") {
+      window.history.replaceState(null, "", "/quiz");
+    }
     pageContent = <QuizEntry />;
   }
 

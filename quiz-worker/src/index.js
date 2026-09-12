@@ -4,14 +4,22 @@ export { QuizRoom } from "./room.js";
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const origin = request.headers.get("Origin") || "";
+    const allowedOrigins = [
+      "https://imf2026.pages.dev",
+      "https://imf.aurum.eu.org",
+      "http://localhost:5173", // local dev
+    ];
+    const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
 
     // CORS preflight
     if (request.method === "OPTIONS") {
       return new Response(null, {
         headers: {
-          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Origin": corsOrigin,
           "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
           "Access-Control-Allow-Headers": "*",
+          "Vary": "Origin",
         },
       });
     }
@@ -32,9 +40,10 @@ export default {
       return response;
     }
 
-    // Inject permissive CORS for standard HTTP endpoints
+    // Inject restricted CORS for standard HTTP endpoints
     const newHeaders = new Headers(response.headers);
-    newHeaders.set("Access-Control-Allow-Origin", "*");
+    newHeaders.set("Access-Control-Allow-Origin", corsOrigin);
+    newHeaders.set("Vary", "Origin");
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,

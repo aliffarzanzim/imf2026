@@ -1,6 +1,7 @@
 // src/pages/QuizEntry.jsx
-import React, { useState, useEffect } from "react";
-import { navigate } from "../utils/navigation";
+import React, { useState, useEffect, useRef } from "react";
+import { Html5Qrcode } from "html5-qrcode";
+import { QuizDashboard } from "./QuizDashboard";
 
 const DEFAULT_WS_URL = "wss://imf2026-quiz.crcck.workers.dev/ws";
 
@@ -29,9 +30,14 @@ export function QuizEntry() {
     };
   });
 
+  const [inLobby, setInLobby] = useState(() => {
+    return sessionStorage.getItem("imf_quiz_in_lobby") === "true";
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(() => {
+    return !!localStorage.getItem("imf_quiz_name");
+  });
 
   // Poll for active tunnel URL from /api/quiz-config and test connection
   useEffect(() => {
@@ -106,11 +112,91 @@ export function QuizEntry() {
     };
   }, [wsConnected]);
 
-  async function handleEmailLookup(e) {
-    if (e) e.preventDefault();
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail) {
-      setLookupError("Please enter your registered email address.");
+  const [showScanner, setShowScanner] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const scannerRef = useRef(null);
+
+  async function startScanner() {
+    setShowScanner(true);
+    setCameraError("");
+    setLookupError("");
+    setTimeout(async () => {
+      try {
+        if (scannerRef.current) {
+          try { await scannerRef.current.stop(); } catch (_) {}
+          try { scannerRef.current.clear(); } catch (_) {}
+          scannerRef.current = null;
+        }
+        const html5QrCode = new Html5Qrcode("quiz-qr-reader");
+        scannerRef.current = html5QrCode;
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          { fps: 15, qrbox: { width: 240, height: 240 } },
+          (decodedText) => {
+            handleQrScanSuccess(decodedText);
+          },
+          () => {}
+        );
+      } catch (err) {
+        console.error("Scanner error:", err);
+        setCameraError("Camera permission denied or camera not found. Please enter your email manually.");
+      }
+    }, 150);
+  }
+
+  async function stopScanner() {
+    if (scannerRef.current) {
+      try { await scannerRef.current.stop(); } catch (_) {}
+      try { scannerRef.current.clear(); } catch (_) {}
+      scannerRef.current = null;
+    }
+    setShowScanner(false);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current) {
+        try { scannerRef.current.stop(); } catch (_) {}
+        try { scannerRef.current.clear(); } catch (_) {}
+      }
+    };
+  }, []);
+
+  async function handleQrScanSuccess(text) {
+    if (!text) return;
+    await stopScanner();
+    // Parse reg number and cryptographic signature from badge QR URL (e.g. https://imf2026.pages.dev/verify?reg=IMF-REG-0439&sig=aea2e51b)
+    let regMatch = text.match(/reg=([A-Za-z0-9\-]+)/i);
+    let sigMatch = text.match(/sig=([A-Za-z0-9]+)/i);
+    let regNumber = regMatch ? regMatch[1] : null;
+    let sig = sigMatch ? sigMatch[1] : null;
+
+    if (!regNumber) {
+      let directMatch = text.match(/(IMF-REG-[0-9]{4})/i);
+      if (directMatch) regNumber = directMatch[1];
+    }
+    let emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    let scannedEmail = emailMatch ? emailMatch[0] : null;
+
+    if (regNumber || scannedEmail) {
+      if (scannedEmail) setEmail(scannedEmail);
+      await handleLookup({
+        emailToLookup: scannedEmail || "",
+        regNumberToLookup: regNumber || "",
+        sigToLookup: sig || "",
+      });
+    } else {
+      setLookupError("Scanned QR code is not a recognized IMF 2026 badge.");
+    }
+  }
+
+  async function handleLookup({ emailToLookup, regNumberToLookup, sigToLookup } = {}) {
+    const cleanEmail = (emailToLookup !== undefined ? emailToLookup : email).trim().toLowerCase();
+    const cleanReg = (regNumberToLookup || "").trim().toUpperCase();
+    const cleanSig = (sigToLookup || "").trim().toLowerCase();
+
+    if (!cleanEmail && !cleanReg) {
+      setLookupError("Please enter your registered email address or scan your badge QR code.");
       return;
     }
 
@@ -118,17 +204,22 @@ export function QuizEntry() {
     setLookupError("");
 
     try {
+      const payload = {};
+      if (cleanEmail) payload.email = cleanEmail;
+      if (cleanReg) payload.regNumber = cleanReg;
+      if (cleanSig) payload.sig = cleanSig;
+
       const res = await fetch("/api/quiz-player-lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: cleanEmail }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
 
       if (!res.ok || !data.success || !data.player) {
         setLookupError(
-          data.error || "No registration found with this email. Please check your email or register first."
+          data.error || "No registration found. Please check your details or register first."
         );
         setIsLoading(false);
         return;
@@ -169,11 +260,6 @@ export function QuizEntry() {
       setPlayerDetails(details);
       setIsSuccess(true);
       setIsLoading(false);
-
-      // Auto-enter live arena after showing the welcome card
-      setTimeout(() => {
-        navigate("/quiz-dashboard");
-      }, 1200);
     } catch (err) {
       console.error("Lookup request failed:", err);
       setLookupError("Network error checking registration. Please try again.");
@@ -181,10 +267,45 @@ export function QuizEntry() {
     }
   }
 
+  function handleEmailLookup(e) {
+    if (e) e.preventDefault();
+    handleLookup({ emailToLookup: email });
+  }
+
+  function handleEnterLobby() {
+    sessionStorage.setItem("imf_quiz_in_lobby", "true");
+    setInLobby(true);
+  }
+
+  function handleExitLobby(resetEmail = false) {
+    sessionStorage.removeItem("imf_quiz_in_lobby");
+    setInLobby(false);
+    if (resetEmail) {
+      handleSwitchEmail();
+    }
+  }
+
   function handleSwitchEmail() {
+    sessionStorage.removeItem("imf_quiz_in_lobby");
+    sessionStorage.removeItem("imf_quiz_name");
+    sessionStorage.removeItem("imf_quiz_email");
+    sessionStorage.removeItem("imf_quiz_pid");
+    sessionStorage.removeItem("imf_quiz_reg");
+    sessionStorage.removeItem("imf_quiz_institution");
+    sessionStorage.removeItem("imf_quiz_year");
+    localStorage.removeItem("imf_quiz_name");
+    localStorage.removeItem("imf_quiz_email");
+    localStorage.removeItem("imf_quiz_pid");
+    localStorage.removeItem("imf_quiz_reg");
+    localStorage.removeItem("imf_quiz_institution");
+    localStorage.removeItem("imf_quiz_year");
     setPlayerDetails(null);
     setIsSuccess(false);
     setLookupError("");
+  }
+
+  if (inLobby && playerDetails) {
+    return <QuizDashboard onExitLobby={handleExitLobby} />;
   }
 
   return (
@@ -214,15 +335,8 @@ export function QuizEntry() {
                   wsConnected ? "bg-emerald-400" : "bg-amber-400"
                 }`}
               />
-              <span>{wsConnected ? "Auditorium Connected" : "Connecting..."}</span>
+              <span className="hidden sm:inline">{wsConnected ? "Connected" : "Connecting..."}</span>
             </div>
-
-            <a
-              href="/quiz-master"
-              className="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60 font-medium transition"
-            >
-              🎬 Quiz Master
-            </a>
           </div>
         </div>
       </header>
@@ -252,11 +366,11 @@ export function QuizEntry() {
             </p>
 
             <div className="bg-black/20 border border-white/10 rounded-2xl p-3.5 mb-6 text-xs text-purple-200 font-mono">
-              Badge: <strong className="text-white font-black">{playerDetails.regNumber || "DELEGATE"}</strong>
+              Reg No: <strong className="text-white font-black">{playerDetails.regNumber || "DELEGATE"}</strong>
             </div>
 
             <button
-              onClick={() => navigate("/quiz-dashboard")}
+              onClick={handleEnterLobby}
               className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-base shadow-xl shadow-emerald-500/20 transition-transform active:scale-95 flex items-center justify-center gap-2"
             >
               <span>Enter Live Lobby 🚀</span>
@@ -283,7 +397,7 @@ export function QuizEntry() {
               Live Quiz Arena
             </h1>
             <p className="text-xs text-slate-400 mb-6">
-              National Internal Medicine Festival 2026 Live Quiz
+              Internal Medicine Festival 2026 Live Quiz
             </p>
 
             <form onSubmit={handleEmailLookup} className="space-y-4 text-left">
@@ -303,9 +417,26 @@ export function QuizEntry() {
                   placeholder="e.g. doctor@gmail.com"
                   className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-emerald-500 focus:outline-none transition"
                 />
-                <span className="text-[11px] text-slate-500 mt-1.5 block">
-                  Your name and medical college details will be automatically recognized from your IMF registration.
-                </span>
+                <button
+                  type="button"
+                  onClick={startScanner}
+                  className="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium mt-2 inline-flex items-center gap-1.5 transition group"
+                >
+                  <svg
+                    className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                    />
+                  </svg>
+                  <span>or you can also scan your id qr code</span>
+                </button>
               </div>
 
               {lookupError && (
@@ -332,6 +463,38 @@ export function QuizEntry() {
           </div>
         )}
       </main>
+
+      {/* ID Badge QR Scanner Modal */}
+      {showScanner && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 max-w-sm w-full text-center shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>📷</span> Scan IMF ID Badge
+              </h3>
+              <button
+                onClick={stopScanner}
+                className="text-slate-400 hover:text-white text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 transition font-bold"
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <div
+              id="quiz-qr-reader"
+              className="rounded-2xl overflow-hidden border border-slate-800 bg-black min-h-[250px]"
+            />
+
+            {cameraError ? (
+              <p className="text-xs text-rose-400 mt-3 font-medium">{cameraError}</p>
+            ) : (
+              <p className="text-[11px] text-slate-400 mt-3">
+                Point camera at the QR code on your IMF 2026 chest card
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
