@@ -82,13 +82,14 @@ INSERT OR IGNORE INTO system_config (key, value) VALUES ('registration_open', 't
 INSERT OR IGNORE INTO system_config (key, value) VALUES ('abstract_edit_open', 'true');
 INSERT OR IGNORE INTO system_config (key, value) VALUES ('registration_abstract_only', 'false');
 
--- Career Club Q&A Table
-CREATE TABLE IF NOT EXISTS career_club_questions (
+-- Career Counselling Q&A Table
+CREATE TABLE IF NOT EXISTS career_counselling_questions (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   email       TEXT    NOT NULL,
   question    TEXT    NOT NULL,
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS idx_career_qna_email ON career_club_questions(email);
+CREATE INDEX IF NOT EXISTS idx_career_counselling_qna_email ON career_counselling_questions(email);
+
 

@@ -7,7 +7,7 @@ import { Admin } from "./pages/Admin";
 import { Verify } from "./pages/Verify";
 import { QuizEntry } from "./pages/QuizEntry";
 import { QuizMaster } from "./pages/QuizMaster";
-import { CareerClubQnA } from "./pages/CareerClubQnA";
+import { CareerCounsellingQnA } from "./pages/CareerCounsellingQnA";
 import { getCurrentRoute } from "./utils/navigation";
 
 class ErrorBoundary extends React.Component {
@@ -99,13 +99,14 @@ export function App() {
     if (route === "quiz-dashboard" && typeof window !== "undefined") {
       window.history.replaceState(null, "", "/quiz");
     }
-  } else if (
-    route === "career-counselling-qna" ||
-    route.startsWith("career-counselling-qna") ||
-    route === "career-club-qna" ||
-    route.startsWith("career-club-qna")
-  ) {
-    pageContent = <CareerClubQnA />;
+    pageContent = <QuizEntry />;
+  } else if (route === "career-counselling-qna" || route.startsWith("career-counselling-qna")) {
+    pageContent = <CareerCounsellingQnA />;
+  } else if (route === "career-club-qna" || route.startsWith("career-club-qna")) {
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", "/career-counselling-qna");
+    }
+    pageContent = <CareerCounsellingQnA />;
   }
 
   return <ErrorBoundary>{pageContent}</ErrorBoundary>;
